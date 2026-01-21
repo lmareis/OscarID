@@ -1,0 +1,15 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rprofile
+.DS_Store
+notebook_files
+*.Rproj
+notebook_cache
+
+renv/library/
+renv/python/
+
+*.tex
+*.pdf

@@ -1,0 +1,82 @@
+---
+bibliography: references.bib 
+authors: # see https://quarto.org/docs/journals/authors.html for further options
+  - name: Firstname Lastname
+    orcid: 0000-0001-0002-0003
+    affiliation: "Your University"
+    country: CountryABC
+---
+
+# Your Notebook Name
+
+| Resource | Information |
+|----|----|
+| Data DOI | [10.5281/zenodo.1234567](https://doi.org/10.5281/zenodo.17598199) |
+| Git + DOI | [Git](https://github.com/MaRDI4NFDI/GMCI_notebook_template/tree/683067d4f2c2d7e83f221e7bfbb0ae9b77aa93a5) [10.5281/zenodo.17598199](https://doi.org/10.5281/zenodo.17598199) |
+| Short Description | Short description of the main contributions and notebook structure |
+
+: {.striped}
+
+## Introduction
+
+Write an introduction to the analysis. Give references via @Mareis_Haug_Drton_2025. The bibtex entries are saved in `references.bib`.
+
+## Loading the Data
+
+Create an R environment and save it in the file `renv.lock` with `renv::init()` and `renv::snapshot()`. For detailed information, see the [renv website](https://rstudio.github.io/renv/articles/renv.html).
+Load the R environment with our standardized loading function.
+```{r, message=TRUE, warning=TRUE, eval=FALSE}
+# activate the chunk with eval=TRUE
+source("../../load_environment.R")
+```
+
+Shortly describe the packages that were responsible for the R environment.
+```{r, message=FALSE, eval=FALSE}
+# Used packages, only for information.
+library(package1) # function of package1
+library(package2) # function of package2
+```
+
+Load the data. Prefereably from Zenodo:
+```{r, message = FALSE, warning=FALSE, eval=FALSE}
+# Load Data
+zenodo <- ZenodoManager$new(logger = NULL)
+record <- zenodo$getRecordByDOI("10.5281/zenodo.1234567")
+files <- record$listFiles(pretty = TRUE)
+alarm <- as.matrix(read.csv(files[1, 4]))
+```
+
+## Analysis
+
+Write some educational analysis text and carry out the analysis.
+
+```{r}
+mean(c(1 + 2, 3 * 4))
+```
+
+Analysis in other languages, e.g., Python are welcome as well. 
+```{python}
+-1 / -2
+```
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+# activate the chunk with eval=TRUE
+source("../../close_environment.R")
+```
+
+## Citing this Notebook {.unnumbered}
+
+Please cite XYZ with the following bib item.
+
+``` bibtex
+@article{XYZ
+}
+```
+
+When using the ABC dataset, please give credit to the original author: Author year.
+
+## Additional Information {.unnumbered}
+
+**License Information:** Please follow the above DOI for license information of data and code.
+
+**Contact:** If you have suggestions, feel free to [create an issue](https://github.com/username/git-project/issues) or contact the authors (your@mail.address).
