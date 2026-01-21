@@ -1,82 +1,105 @@
 ---
-bibliography: references.bib 
 authors: # see https://quarto.org/docs/journals/authors.html for further options
-  - name: Firstname Lastname
-    orcid: 0000-0001-0002-0003
-    affiliation: "Your University"
-    country: CountryABC
+  - name: Leopold Mareis
+    orcid: 0000-0002-2624-6522
+    affiliation: "Technical University of Munich "
+    country: Germany
+  - name: Anthony Della Vecchia
+engine: julia
 ---
 
-# Your Notebook Name
+# Generic Identification in Linear Causal Models with OSCAR
 
 | Resource | Information |
-|----|----|
-| Data DOI | [10.5281/zenodo.1234567](https://doi.org/10.5281/zenodo.17598199) |
-| Git + DOI | [Git](https://github.com/MaRDI4NFDI/GMCI_notebook_template/tree/683067d4f2c2d7e83f221e7bfbb0ae9b77aa93a5) [10.5281/zenodo.17598199](https://doi.org/10.5281/zenodo.17598199) |
-| Short Description | Short description of the main contributions and notebook structure |
+|------------------------------------|------------------------------------|
+| Git + DOI | [Git]() [Zenodo]() |
+| Short Description | This notebook demonstrates the computational algebraic procedure to determine the identifiability of direct effects in linear Gaussian graphical models. |
 
 : {.striped}
 
-## Introduction
+## Background
 
-Write an introduction to the analysis. Give references via @Mareis_Haug_Drton_2025. The bibtex entries are saved in `references.bib`.
+Gaussian graphical models specify the dependencies in a random variable $ X $ via the linear structural equations $$ X = \Lambda^\top X  + \varepsilon \quad , \varepsilon \sim N(0, \Omega). $$ We assume that the parameter matrix $ \Lambda $ is upper-triagonal. The resulting covariance matrix $ \Sigma $ on a dataset $ (X\^{i})\_{i \in \[n\]} $ defines the following system of equations: $$ Cov(X) = (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1} $$ These equations specify algebraic relations on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters.
 
-## Loading the Data
+## The Graph X_1 -\> X_2 -\> X_3
 
-Create an R environment and save it in the file `renv.lock` with `renv::init()` and `renv::snapshot()`. For detailed information, see the [renv website](https://rstudio.github.io/renv/articles/renv.html).
-Load the R environment with our standardized loading function.
-```{r, message=TRUE, warning=TRUE, eval=FALSE}
-# activate the chunk with eval=TRUE
-source("../../load_environment.R")
+In the following, we focus on the three-variate, normally-distributed random vector $ X $ following the structural equation $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 \\ \lambda_{21} & 0 & 0 \\ 0 & \lambda_{32} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \quad , \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \sim N(0, \begin{pmatrix} \omega_{11} & 0 & 0 \\ 0 & \omega_{22} & 0 \\ 0 & 0& \omega_{33} \end{pmatrix} ) $$ The direct effects $ \lambda\*{21} $ and $\* \lambda{32} $ are parameters of interest and at the core of the study. There exists mathematical theory in the Half-Trek-Criterion on the identification of model parameters which is sufficient but not necessary (Foygel). Computational Algebra can check identifiability for each graphical as we will show next. The `Oscar` Package embedded in `Julia` provides necessary symbolic computation (citation Oscar).
+
+```{julia}
+#| output: false
+using Pkg
+Pkg.add("Oscar")
+using Oscar
 ```
 
-Shortly describe the packages that were responsible for the R environment.
-```{r, message=FALSE, eval=FALSE}
-# Used packages, only for information.
-library(package1) # function of package1
-library(package2) # function of package2
+```{julia}
+#| output: false
+function sem_groebner_basis(U)
+    # Construct outer product ring
+    P = parameter_ring(U) # [Ring, Dictionary]
+    ring_generators = symbols(P[1])
+    n_params = ngens(P[1])
+    S = model_ring(U) # [Ring]
+    covariance_generators = symbols(S[1])
+    allvars = vcat(ring_generators, covariance_generators)
+    
+    R, Rvars = polynomial_ring(QQ, allvars)
+    
+    # homomorphisms to the original rings
+    phi_P = hom(P[1], R, Rvars[1:n_params])
+    phi_S = hom(S[1],   R, Rvars[(n_params + 1):end])
+    
+    LambdaR = map_entries(phi_P, directed_edges_matrix(U)) 
+    OmegaR = map_entries(phi_P, error_covariance_matrix(U)) 
+    SigmaR = map_entries(phi_S, covariance_matrix(U))
+    
+    # build SEM equation (I - Λ)^T Σ (I - Λ) = Ω system
+    MS = matrix_space(R, nrows(LambdaR), nrows(LambdaR)) 
+    Id = MS(1) 
+    eq_mat = transpose(Id - LambdaR) * SigmaR * (Id - LambdaR) - OmegaR 
+    eqs = [eq_mat[i,j] for i in 1:nrows(eq_mat) for j in 1:ncols(eq_mat)]
+    I = ideal(R, eqs)
+    
+    # potentially, select different ordering for Groebner computation
+    param_vars = Rvars[1:n_params] 
+    sigma_vars = Rvars[(n_params + 1):end]
+    o = degrevlex(param_vars) * degrevlex(sigma_vars) 
+    G = groebner_basis(I, ordering=o)
+    return G, R, Rvars, I, o
+end
+
 ```
 
-Load the data. Prefereably from Zenodo:
-```{r, message = FALSE, warning=FALSE, eval=FALSE}
-# Load Data
-zenodo <- ZenodoManager$new(logger = NULL)
-record <- zenodo$getRecordByDOI("10.5281/zenodo.1234567")
-files <- record$listFiles(pretty = TRUE)
-alarm <- as.matrix(read.csv(files[1, 4]))
+We discuss the individual functionallities of the function `sem_groebner_basis`. Fist, Groebner basis computation is an elimination procedure to reduce a finite set of polynomials over a ring.
+
+1.  The parameter polynomial ring `P` over the rationals covers the entries of $ \Lambda $ and $ \Omega $. Similarly, the model polynomial ring `S` over the rationals represents the covariance matrix entries. To represent the equations $ X = \Lambda^\top X  + \varepsilon $, we must define a ring `R` on the joint generators. 
+2.  There exist canonical homomorphisms of the polynomial rings `P` and `S` to the joint ring `R` with which the design and covariance matrix can be mapped. This enables us to define the characterizing moment equation. Its vanishing ideal, i.e. the polynomial null-set, characterize all parameter configurations.
+2.  The Groebner basis computation iteratively reduces the equation system according to the given ordering. We say that a parameter is identified, if it is a unique function of the covariance matrix and of already identified parameters.
+
+In the next code chunk, we employ the Groebner basis computation on the path $$ X_1 \longrightarrow X_2 \longrightarrow X_3 .$$
+
+```{julia}
+U = gaussian_graphical_model(graph_from_edges(Directed, [[1,2],[2,3]]));
+G, R, Rvars, I, o = sem_groebner_basis(U);
+G
 ```
 
-## Analysis
+The resulting basis gives a sequential identification of the parameters from equations 5, 10, 4, 2. We can write equivalently
 
-Write some educational analysis text and carry out the analysis.
+$$ 
+\begin{matrix}
+w[1] =  s[1, 1] \\ 
+l[1, 2] =  s[1, 2] / s[1, 1] \\ 
+w[2] = (s[1, 1]*s[2, 2] - s[1, 2]^2 ) / s[1, 1]  \\
+l[2, 3] = s[2, 3] / s[2, 2]\\ 
+w[3] = (s[2, 2]*s[3, 3] -  s[2, 3]^2) / s[2, 2]
+\end{matrix}
+$$
 
-```{r}
-mean(c(1 + 2, 3 * 4))
-```
+#### Open points
 
-Analysis in other languages, e.g., Python are welcome as well. 
-```{python}
--1 / -2
-```
+-   Bidirected edges
 
-```{r, message=FALSE, warning=FALSE, eval=FALSE}
-# activate the chunk with eval=TRUE
-source("../../close_environment.R")
-```
+-   Partial Identification and non-identification E.g. X_1 -\> X_2. X_3 \<-\> -\> X_4
 
-## Citing this Notebook {.unnumbered}
-
-Please cite XYZ with the following bib item.
-
-``` bibtex
-@article{XYZ
-}
-```
-
-When using the ABC dataset, please give credit to the original author: Author year.
-
-## Additional Information {.unnumbered}
-
-**License Information:** Please follow the above DOI for license information of data and code.
-
-**Contact:** If you have suggestions, feel free to [create an issue](https://github.com/username/git-project/issues) or contact the authors (your@mail.address).
+-   Selection of Groebner Basis Orderings
