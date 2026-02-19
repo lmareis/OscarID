@@ -5,6 +5,7 @@ authors: # see https://quarto.org/docs/journals/authors.html for further options
     affiliation: "Technical University of Munich "
     country: Germany
   - name: Anthony Della Vecchia
+  - name: Bejamin Hollering
 engine: julia
 ---
 
@@ -13,76 +14,139 @@ engine: julia
 | Resource | Information |
 |------------------------------------|------------------------------------|
 | Git + DOI | [Git]() [Zenodo]() |
-| Short Description | This notebook demonstrates the computational algebraic procedure to determine the identifiability of direct effects in linear Gaussian graphical models. |
+| Short Description | This notebook demonstrates the computational algebraic procedure to determine the identifiability of model parameters in linear Gaussian graphical models.|
 
 : {.striped}
 
 ## Background
 
-Gaussian graphical models specify the dependencies in a random variable $ X $ via the linear structural equations $$ X = \Lambda^\top X  + \varepsilon \quad , \varepsilon \sim N(0, \Omega). $$ We assume that the parameter matrix $ \Lambda $ is upper-triagonal. The resulting covariance matrix $ \Sigma $ on a dataset $ (X\^{i})\_{i \in \[n\]} $ defines the following system of equations: $$ Cov(X) = (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1} $$ These equations specify algebraic relations on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters.
+Gaussian graphical models specify the dependencies in a random variable $X$ via the linear structural equations $$ X = \Lambda^\top X  + \varepsilon \quad , \varepsilon \sim N(0, \Omega). $$ We assume that the parameter matrix $\Lambda$ is upper-triagonal. The resulting covariance matrix $\Sigma$ on a dataset $(X^{i})_{i \in [n]}$ defines the following system of equations: $$ Cov(X) = (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1} $$ These equations specify algebraic relations on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters. 
 
-## The Graph X_1 -\> X_2 -\> X_3
+## The Graph $X_1 \rightarrow X_2 \rightarrow X_3$
 
-In the following, we focus on the three-variate, normally-distributed random vector $ X $ following the structural equation $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 \\ \lambda_{21} & 0 & 0 \\ 0 & \lambda_{32} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \quad , \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \sim N(0, \begin{pmatrix} \omega_{11} & 0 & 0 \\ 0 & \omega_{22} & 0 \\ 0 & 0& \omega_{33} \end{pmatrix} ) $$ The direct effects $ \lambda\*{21} $ and $\* \lambda{32} $ are parameters of interest and at the core of the study. There exists mathematical theory in the Half-Trek-Criterion on the identification of model parameters which is sufficient but not necessary (Foygel). Computational Algebra can check identifiability for each graphical as we will show next. The `Oscar` Package embedded in `Julia` provides necessary symbolic computation (citation Oscar).
+In the following, we focus on the three-variate, normally-distributed random vector $X$ following the structural equation $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 \\ \lambda_{21} & 0 & 0 \\ 0 & \lambda_{32} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \quad , \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \sim N(0, \begin{pmatrix} \omega_{11} & 0 & 0 \\ 0 & \omega_{22} & 0 \\ 0 & 0& \omega_{33} \end{pmatrix} ) $$ The direct effects $\lambda_{21}$ and $\lambda_{32}$ are parameters of interest and at the core of the study. There exists mathematical theory in the Half-Trek-Criterion on the identification of model parameters which is sufficient but not necessary (Foygel). Computational Algebra can check identifiability for each graphical as we will show next. The `Oscar` Package embedded in `Julia` provides necessary symbolic computation (citation Oscar).
 
 ```{julia}
 #| output: false
-using Pkg
-Pkg.add("Oscar")
+#using Pkg
+#Pkg.add("Oscar")
 using Oscar
 ```
 
+
 ```{julia}
 #| output: false
-function sem_groebner_basis(U)
-    # Construct outer product ring
-    P = parameter_ring(U) # [Ring, Dictionary]
-    ring_generators = symbols(P[1])
-    n_params = ngens(P[1])
-    S = model_ring(U) # [Ring]
-    covariance_generators = symbols(S[1])
-    allvars = vcat(ring_generators, covariance_generators)
-    
-    R, Rvars = polynomial_ring(QQ, allvars)
-    
-    # homomorphisms to the original rings
-    phi_P = hom(P[1], R, Rvars[1:n_params])
-    phi_S = hom(S[1],   R, Rvars[(n_params + 1):end])
-    
-    LambdaR = map_entries(phi_P, directed_edges_matrix(U)) 
-    OmegaR = map_entries(phi_P, error_covariance_matrix(U)) 
-    SigmaR = map_entries(phi_S, covariance_matrix(U))
-    
-    # build SEM equation (I - Λ)^T Σ (I - Λ) = Ω system
-    MS = matrix_space(R, nrows(LambdaR), nrows(LambdaR)) 
-    Id = MS(1) 
-    eq_mat = transpose(Id - LambdaR) * SigmaR * (Id - LambdaR) - OmegaR 
-    eqs = [eq_mat[i,j] for i in 1:nrows(eq_mat) for j in 1:ncols(eq_mat)]
-    I = ideal(R, eqs)
-    
-    # potentially, select different ordering for Groebner computation
-    param_vars = Rvars[1:n_params] 
-    sigma_vars = Rvars[(n_params + 1):end]
-    o = degrevlex(param_vars) * degrevlex(sigma_vars) 
-    G = groebner_basis(I, ordering=o)
-    return G, R, Rvars, I, o
-end
+function identify_parameters(M::GraphicalModel, return_ideal = false)
 
+  # get graph data from the model
+  G = graph(M)
+  
+  if typeof(G) === Oscar.MixedGraph
+    E = edges(G, Directed)
+  else
+    E = edges(G)
+  end
+  
+  # get rings and parametrization
+  S, s = model_ring(M)
+  R, t = parameter_ring(M)
+  phi = parametrization(M)
+  
+  # setup the elimination ideal
+  elim_ring, elim_gens = polynomial_ring(coefficient_ring(R), vcat(symbols(R), symbols(S)))
+  inject_R = hom(R, elim_ring, elim_gens[1:ngens(R)])
+  inject_S = hom(S, elim_ring, elim_gens[ngens(R) + 1:ngens(elim_ring)])
+  I = ideal([inject_S(s)*inject_R(denominator(phi(s))) - inject_R(numerator(phi(s))) for s in gens(S)])
+  display(I)
+  
+  # eliminate
+  out = Dict()
+  for e in E
+    l = t[e]
+    other_params = [inject_R(i) for i in values(t) if i != l]
+    J = eliminate(I, other_params)
+    display(J)
+    if return_ideal
+      out[e] = J
+    else
+      out[e] = contains_linear_poly(J, inject_R(l), ngens(R))
+    end
+  end
+  
+  return out
+end
 ```
 
-We discuss the individual functionallities of the function `sem_groebner_basis`. Fist, Groebner basis computation is an elimination procedure to reduce a finite set of polynomials over a ring.
 
-1.  The parameter polynomial ring `P` over the rationals covers the entries of $ \Lambda $ and $ \Omega $. Similarly, the model polynomial ring `S` over the rationals represents the covariance matrix entries. To represent the equations $ X = \Lambda^\top X  + \varepsilon $, we must define a ring `R` on the joint generators. 
+We discuss the individual functionalities of the function `identify_parameters`. Fist, a Groebner basis is a special set of polynomials generating an ideal. # ordering
+
+1.  The parameter polynomial ring `P` over the rationals covers the entries of $\Lambda$ and $\Omega$. Similarly, the model polynomial ring `S` over the rationals represents the covariance matrix entries. To represent the equations $X = \Lambda^\top X  + \varepsilon$, we must define a ring `R` on the joint generators. 
 2.  There exist canonical homomorphisms of the polynomial rings `P` and `S` to the joint ring `R` with which the design and covariance matrix can be mapped. This enables us to define the characterizing moment equation. Its vanishing ideal, i.e. the polynomial null-set, characterize all parameter configurations.
 2.  The Groebner basis computation iteratively reduces the equation system according to the given ordering. We say that a parameter is identified, if it is a unique function of the covariance matrix and of already identified parameters.
 
 In the next code chunk, we employ the Groebner basis computation on the path $$ X_1 \longrightarrow X_2 \longrightarrow X_3 .$$
 
 ```{julia}
-U = gaussian_graphical_model(graph_from_edges(Directed, [[1,2],[2,3]]));
-G, R, Rvars, I, o = sem_groebner_basis(U);
-G
+# mixed graph with hidden variables
+D = [[1, 2], [2, 3]];
+B = [[2, 3]];
+G = graph_from_edges(Mixed, D, B);
+M = gaussian_graphical_model(G);
+
+# return the full ideal
+out = identify_parameters(M, true);
+for edge in keys(out) 
+  println(edge) 
+  show(stdout, "text/plain", out[edge]) 
+  println()
+end
 ```
+
+
+```{julia}
+#| output: false
+function contains_linear_poly(J, l, nparams)
+
+  R = base_ring(J)
+  
+  # find the position of l in gens(R) and can check the corresponding entry of the exponent vector for linearity
+  l_pos = findfirst(==(l), gens(R))
+  
+  for f in gens(J)
+    exps = exponents(f)
+    for v in exps
+      if v[l_pos] == 1 && sum(v[1:nparams]) == 1
+        return (true, f)
+      end
+    end
+  end
+  
+  return (false, R(0))
+end
+```
+
+```{julia}
+# directed graph
+G = graph_from_edges(Directed, [[1, 2], [1, 3], [2, 3]]);
+M = gaussian_graphical_model(G);
+println(identify_parameters(M))
+
+# undirected graph
+G = graph_from_edges(Undirected, [[1, 2], [1, 3]]);
+M = gaussian_graphical_model(G);
+println(identify_parameters(M)) # what, why not identifiable? (empty ideal, see below)
+
+# unidentifiable parameters
+D = [[1, 2]];
+B = [[1, 2]];
+G = graph_from_edges(Mixed, D, B);
+M = gaussian_graphical_model(G);
+println(identify_parameters(M)) # what, why identifiable? -> problem with the wrong entry names in the error covariance off-diagonal elements # fixed in 1.7
+
+# comment on cyclic graphs
+```
+
+
 
 The resulting basis gives a sequential identification of the parameters from equations 5, 10, 4, 2. We can write equivalently
 
@@ -100,6 +164,6 @@ $$
 
 -   Bidirected edges
 
--   Partial Identification and non-identification E.g. X_1 -\> X_2. X_3 \<-\> -\> X_4
+-   Partial Identification and non-identification E.g. $X_1 \to X_2 \quad X_3 \leftrightarrow X_4$
 
 -   Selection of Groebner Basis Orderings
