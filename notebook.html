@@ -69,7 +69,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="notebook_files/libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="notebook_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="notebook_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="notebook_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="notebook_files/libs/bootstrap/bootstrap-c62ef0501ae2f3adb684d0ab58cf61b7.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
@@ -166,221 +166,286 @@ window.Quarto = {
 </tr>
 <tr class="even">
 <td>Short Description</td>
-<td>This notebook demonstrates the computational algebraic procedure to determine the identifiability of model parameters in linear Gaussian graphical models.</td>
+<td>This notebook demonstrates the computational algebraic procedure to determine the identifiability of model parameters in linear graphical models.</td>
 </tr>
 </tbody>
 </table>
-<section id="background" class="level2">
-<h2 class="anchored" data-anchor-id="background">Background</h2>
-<p>Gaussian graphical models specify the dependencies in a random variable <span class="math inline">\(X\)</span> via the linear structural equations <span class="math display">\[ X = \Lambda^\top X  + \varepsilon \quad , \varepsilon \sim N(0, \Omega). \]</span> We assume that the parameter matrix <span class="math inline">\(\Lambda\)</span> is upper-triagonal. The resulting covariance matrix <span class="math inline">\(\Sigma\)</span> on a dataset <span class="math inline">\((X^{i})_{i \in [n]}\)</span> defines the following system of equations: <span class="math display">\[ Cov(X) = (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1} \]</span> These equations specify algebraic relations on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters.</p>
+<section id="linear-structural-equation-models" class="level2">
+<h2 class="anchored" data-anchor-id="linear-structural-equation-models">Linear Structural Equation Models</h2>
+<p>Let <span class="math inline">\(\Lambda \in \mathbb{R}^{d\times d}\)</span> be an upper-diagonal design matrix and let <span class="math inline">\(\varepsilon \sim P_\varepsilon\)</span> be a centered random error vector with covariance matrix <span class="math inline">\(\Omega\)</span>. A random variable <span class="math inline">\(X\)</span> is said to follow a linear model if it satisfies the structural equations <span class="math display">\[ X = \Lambda^\top X  + \varepsilon. \]</span> The resulting covariance matrix <span class="math inline">\(\Sigma\)</span> on a dataset <span class="math inline">\((X^{i})_{i \in [n]}\)</span> defines the following system of equations: <span class="math display">\[\Sigma := Cov(X) = (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1} \]</span> These equations specify algebraic relations via polynomials on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters.</p>
 </section>
-<section id="the-graph-x_1-rightarrow-x_2-rightarrow-x_3" class="level2">
-<h2 class="anchored" data-anchor-id="the-graph-x_1-rightarrow-x_2-rightarrow-x_3">The Graph <span class="math inline">\(X_1 \rightarrow X_2 \rightarrow X_3\)</span></h2>
-<p>In the following, we focus on the three-variate, normally-distributed random vector <span class="math inline">\(X\)</span> following the structural equation <span class="math display">\[ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} = \begin{pmatrix} 0 &amp; 0 &amp; 0 \\ \lambda_{21} &amp; 0 &amp; 0 \\ 0 &amp; \lambda_{32} &amp; 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \quad , \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \sim N(0, \begin{pmatrix} \omega_{11} &amp; 0 &amp; 0 \\ 0 &amp; \omega_{22} &amp; 0 \\ 0 &amp; 0&amp; \omega_{33} \end{pmatrix} ) \]</span> The direct effects <span class="math inline">\(\lambda_{21}\)</span> and <span class="math inline">\(\lambda_{32}\)</span> are parameters of interest and at the core of the study. There exists mathematical theory in the Half-Trek-Criterion on the identification of model parameters which is sufficient but not necessary (Foygel). Computational Algebra can check identifiability for each graphical as we will show next. The <code>Oscar</code> Package embedded in <code>Julia</code> provides necessary symbolic computation (citation Oscar).</p>
+<section id="acyclic-directed-mixed-graphs-admgs" class="level2">
+<h2 class="anchored" data-anchor-id="acyclic-directed-mixed-graphs-admgs">Acyclic Directed Mixed Graphs (ADMGs)</h2>
+<p>Let the four-variate random vector <span class="math inline">\(X\)</span> follow the structural equations <span class="math display">\[ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} = \begin{pmatrix} 0 &amp; 0 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 0 &amp; 0 \\ \lambda_{12} &amp; \lambda_{13} &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; \lambda_{34} &amp; 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \\ \varepsilon_4 \end{pmatrix} \quad , Cov(\varepsilon) = \begin{pmatrix} \omega_{11} &amp; 0 &amp; 0 &amp; 0 \\ 0 &amp; \omega_{22} &amp;  \omega_{23} &amp; 0 \\ 0 &amp; \omega_{23} &amp; \omega_{33} &amp;\omega_{34} \\ 0 &amp; 0 &amp; \omega_{34} &amp; \omega_{44} \end{pmatrix}.\]</span> This random vector satisfies Markov properties indicating (conditional) independencies with respect to the following graph:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Tikz_Pictures/ADMG.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="200"></p>
+</figure>
+</div>
+<p>The direct effects <span class="math inline">\(\lambda_{21}\)</span>, <span class="math inline">\(\lambda_{31}\)</span> and <span class="math inline">\(\lambda_{43}\)</span> correspond to edges in the graph are parameters of interest. In practice, direct effects can for example model the effectiveness of a medical drug, the effectiveness of an institutional policy or of machine settings on the manufacturing quality. Experts or statistical structure learning can infer a potential graph inducing a structural model in which parameters are to be estimated.</p>
+<p>There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (Foygel). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All symbolic computations are performed in the <code>Oscar</code> Package embedded in <code>Julia</code> (citation Oscar).</p>
 <div id="2" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">#using Pkg</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">#Pkg.add("Oscar")</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Oscar</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Oscar</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
+<section id="computing-the-model-variety" class="level3">
+<h3 class="anchored" data-anchor-id="computing-the-model-variety">Computing the Model Variety</h3>
+<p>The polynomial equations induced by the covariance relations define an <em>ideal</em>, which is an algebraic null-set. This ideal consists of all model parameter configurations and covariance matrices that are aligned with the statistical model. A variety is a set of polynomial equations whose null-set is the ideal. Strategically reducing the variety and checking whether there exist a linear polynomial <span class="math display">\[\lambda_{ij} g_1(\Sigma) - g_2(\Sigma)\]</span> <em>generically</em> identifies the parameter <span class="math inline">\(\lambda_{ij}\)</span> (Sullivant, Proposition 16.1.8). Buchberger’s algorithm and variants for computing Groebner Basis eliminate the superflous model parameters after finite reductions. If the parameter is <em>generically nonidentifiable</em>, the finite reductions will return no such suitable polynomial. The following code chunk computes the variety for our ADMG example.</p>
 <div id="4" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">identify_parameters</span>(M<span class="op">::</span><span class="dt">GraphicalModel</span>, return_ideal <span class="op">=</span> <span class="cn">false</span>)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># get graph data from the model</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  G <span class="op">=</span> <span class="fu">graph</span>(M)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="fu">typeof</span>(G) <span class="op">===</span> Oscar.MixedGraph</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    E <span class="op">=</span> <span class="fu">edges</span>(G, Directed)</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    E <span class="op">=</span> <span class="fu">edges</span>(G)</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># get rings and parametrization</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  S, s <span class="op">=</span> <span class="fu">model_ring</span>(M)</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  R, t <span class="op">=</span> <span class="fu">parameter_ring</span>(M)</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  phi <span class="op">=</span> <span class="fu">parametrization</span>(M)</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># setup the elimination ideal</span></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  elim_ring, elim_gens <span class="op">=</span> <span class="fu">polynomial_ring</span>(<span class="fu">coefficient_ring</span>(R), <span class="fu">vcat</span>(<span class="fu">symbols</span>(R), <span class="fu">symbols</span>(S)))</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  inject_R <span class="op">=</span> <span class="fu">hom</span>(R, elim_ring, elim_gens[<span class="fl">1</span><span class="op">:</span><span class="fu">ngens</span>(R)])</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  inject_S <span class="op">=</span> <span class="fu">hom</span>(S, elim_ring, elim_gens[<span class="fu">ngens</span>(R) <span class="op">+</span> <span class="fl">1</span><span class="op">:</span><span class="fu">ngens</span>(elim_ring)])</span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  I <span class="op">=</span> <span class="fu">ideal</span>([<span class="fu">inject_S</span>(s)<span class="fu">*inject_R</span>(<span class="fu">denominator</span>(<span class="fu">phi</span>(s))) <span class="op">-</span> <span class="fu">inject_R</span>(<span class="fu">numerator</span>(<span class="fu">phi</span>(s))) for s <span class="kw">in</span> <span class="fu">gens</span>(S)])</span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">display</span>(I)</span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="co"># eliminate</span></span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  out <span class="op">=</span> <span class="fu">Dict</span>()</span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> <span class="cn">e</span> <span class="kw">in</span> E</span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    l <span class="op">=</span> t[<span class="cn">e</span>]</span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    other_params <span class="op">=</span> [<span class="fu">inject_R</span>(i) for i <span class="kw">in</span> <span class="fu">values</span>(t) if i <span class="op">!=</span> l]</span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    J <span class="op">=</span> <span class="fu">eliminate</span>(I, other_params)</span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">display</span>(J)</span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> return_ideal</span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>      out[<span class="cn">e</span>] <span class="op">=</span> J</span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>      out[<span class="cn">e</span>] <span class="op">=</span> <span class="fu">contains_linear_poly</span>(J, <span class="fu">inject_R</span>(l), <span class="fu">ngens</span>(R))</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> out</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">identify_parameters</span>(M<span class="op">::</span><span class="dt">GraphicalModel</span>, </span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>                             return_elimination_ideal <span class="op">=</span> <span class="cn">false</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>                             return_ideal <span class="op">=</span> <span class="cn">false</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># get graph data from the model</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  G <span class="op">=</span> <span class="fu">graph</span>(M)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="fu">typeof</span>(G) <span class="op">===</span> Oscar.MixedGraph</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    E <span class="op">=</span> <span class="fu">edges</span>(G, Directed)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    E <span class="op">=</span> <span class="fu">edges</span>(G)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># get rings and parametrization</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  S, s <span class="op">=</span> <span class="fu">model_ring</span>(M)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  R, t <span class="op">=</span> <span class="fu">parameter_ring</span>(M)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  phi <span class="op">=</span> <span class="fu">parametrization</span>(M)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># setup the elimination ideal</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  elim_ring, elim_gens <span class="op">=</span> <span class="fu">polynomial_ring</span>(<span class="fu">coefficient_ring</span>(R), <span class="fu">vcat</span>(<span class="fu">symbols</span>(R), <span class="fu">symbols</span>(S)))</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  inject_R <span class="op">=</span> <span class="fu">hom</span>(R, elim_ring, elim_gens[<span class="fl">1</span><span class="op">:</span><span class="fu">ngens</span>(R)])</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  inject_S <span class="op">=</span> <span class="fu">hom</span>(S, elim_ring, elim_gens[<span class="fu">ngens</span>(R) <span class="op">+</span> <span class="fl">1</span><span class="op">:</span><span class="fu">ngens</span>(elim_ring)])</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  I <span class="op">=</span> <span class="fu">ideal</span>([<span class="fu">inject_S</span>(s)<span class="fu">*inject_R</span>(<span class="fu">denominator</span>(<span class="fu">phi</span>(s))) <span class="op">-</span> <span class="fu">inject_R</span>(<span class="fu">numerator</span>(<span class="fu">phi</span>(s))) for s <span class="kw">in</span> <span class="fu">gens</span>(S)])</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> return_ideal</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> I</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="co"># eliminate</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  out <span class="op">=</span> <span class="fu">Dict</span>()</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> <span class="cn">e</span> <span class="kw">in</span> E</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    l <span class="op">=</span> t[<span class="cn">e</span>]</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    other_params <span class="op">=</span> [<span class="fu">inject_R</span>(i) for i <span class="kw">in</span> <span class="fu">values</span>(t) if i <span class="op">!=</span> l]</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    J <span class="op">=</span> <span class="fu">eliminate</span>(I, other_params)</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> return_elimination_ideal</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>      out[<span class="cn">e</span>] <span class="op">=</span> J</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>      out[<span class="cn">e</span>] <span class="op">=</span> <span class="fu">contains_linear_poly</span>(J, <span class="fu">inject_R</span>(l), <span class="fu">ngens</span>(R))</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> out</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">print_dictionary</span>(out<span class="op">::</span><span class="dt">Dict{Any, Any}</span>)</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (i, edge) <span class="kw">in</span> <span class="fu">enumerate</span>(<span class="fu">keys</span>(out))</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(edge)</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        <span class="fu">show</span>(<span class="cn">stdout</span>, <span class="st">"text/plain"</span>, out[edge])</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>()</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> i <span class="op">&lt;</span> <span class="fu">length</span>(out)</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>()</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>We discuss the individual functionalities of the function <code>identify_parameters</code>. Fist, a Groebner basis is a special set of polynomials generating an ideal. # ordering</p>
-<ol type="1">
-<li>The parameter polynomial ring <code>P</code> over the rationals covers the entries of <span class="math inline">\(\Lambda\)</span> and <span class="math inline">\(\Omega\)</span>. Similarly, the model polynomial ring <code>S</code> over the rationals represents the covariance matrix entries. To represent the equations <span class="math inline">\(X = \Lambda^\top X  + \varepsilon\)</span>, we must define a ring <code>R</code> on the joint generators.</li>
-<li>There exist canonical homomorphisms of the polynomial rings <code>P</code> and <code>S</code> to the joint ring <code>R</code> with which the design and covariance matrix can be mapped. This enables us to define the characterizing moment equation. Its vanishing ideal, i.e.&nbsp;the polynomial null-set, characterize all parameter configurations.</li>
-<li>The Groebner basis computation iteratively reduces the equation system according to the given ordering. We say that a parameter is identified, if it is a unique function of the covariance matrix and of already identified parameters.</li>
-</ol>
-<p>In the next code chunk, we employ the Groebner basis computation on the path <span class="math display">\[ X_1 \longrightarrow X_2 \longrightarrow X_3 .\]</span></p>
 <div id="6" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># mixed graph with hidden variables</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>D <span class="op">=</span> [[<span class="fl">1</span>, <span class="fl">2</span>], [<span class="fl">2</span>, <span class="fl">3</span>]];</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>B <span class="op">=</span> [[<span class="fl">2</span>, <span class="fl">3</span>]];</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fu">graph_from_edges</span>(Mixed, D, B);</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">gaussian_graphical_model</span>(G);</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># return the full ideal</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">identify_parameters</span>(M, <span class="cn">true</span>);</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> edge <span class="kw">in</span> <span class="fu">keys</span>(out) </span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">println</span>(edge) </span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">show</span>(<span class="cn">stdout</span>, <span class="st">"text/plain"</span>, out[edge]) </span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">println</span>()</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>directed_edges <span class="op">=</span> [[<span class="fl">1</span>, <span class="fl">3</span>], [<span class="fl">2</span>, <span class="fl">3</span>], [<span class="fl">3</span>, <span class="fl">4</span>]]</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>bidirected_edges <span class="op">=</span> [[<span class="fl">2</span>, <span class="fl">3</span>], [<span class="fl">3</span>, <span class="fl">4</span>]]</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>graph_admg <span class="op">=</span> <span class="fu">graph_from_edges</span>(Mixed, directed_edges, bidirected_edges)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>model_admg <span class="op">=</span> <span class="fu">gaussian_graphical_model</span>(graph_admg)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>variety_admg <span class="op">=</span> <span class="fu">identify_parameters</span>(model_admg, <span class="cn">false</span>, <span class="cn">true</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">display</span>(variety_admg)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display">
+<pre><code>Ideal generated by
+  -w[1] + s[1, 1]
+  s[1, 2]
+  -l[1, 3]*w[1] + s[1, 3]
+  -l[1, 3]*l[3, 4]*w[1] + s[1, 4]
+  -w[2] + s[2, 2]
+  -l[2, 3]*w[2] - w[3, 2] + s[2, 3]
+  -l[2, 3]*l[3, 4]*w[2] - l[3, 4]*w[3, 2] + s[2, 4]
+  -l[1, 3]^2*w[1] - l[2, 3]^2*w[2] - 2*l[2, 3]*w[3, 2] - w[3] + s[3, 3]
+  -l[1, 3]^2*l[3, 4]*w[1] - l[2, 3]^2*l[3, 4]*w[2] - 2*l[2, 3]*l[3, 4]*w[3, 2] - l[3, 4]*w[3] - w[4, 3] + s[3, 4]
+  -l[1, 3]^2*l[3, 4]^2*w[1] - l[2, 3]^2*l[3, 4]^2*w[2] - 2*l[2, 3]*l[3, 4]^2*w[3, 2] - l[3, 4]^2*w[3] - 2*l[3, 4]*w[4, 3] - w[4] + s[4, 4]</code></pre>
+</div>
+</div>
+<p>The function <code>identify_parameters</code> creates a joint polynomial ring on the entries of <span class="math inline">\(\Lambda\)</span> (<code>l[i, j]</code>), <span class="math inline">\(\Omega\)</span> (<code>w[i]</code>) and <span class="math inline">\(\Sigma\)</span> (<code>s[i, j]</code>). Note that we call the function <code>gaussian_graphical_model</code> although the error might be non-Gaussian. This is fine. It solely provides the necessary covariance relations after calling the method <code>parametrization</code> on the returned model. The variety is constructed from the polynomial relations <span class="math display">\[(- (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1})_{ij} -  \Sigma_{ij} = 0 \quad \forall i,j \in [d]\]</span> on the joint ring. The left-hand-side, as a potential rational function in the parameter ring, is handled though the <code>numerator</code> and <code>denominator</code> methods. The model generators are the <span class="math inline">\(\Sigma_{ij}\)</span> entries <code>s[i, j]</code>.</p>
+<p>In our example, the second variety polynomial <span class="math inline">\(\sigma_{21}\)</span> encodes that <span class="math inline">\(X_1\)</span> and <span class="math inline">\(X_2\)</span> are uncorrelated. This is the only visible requirement on the space of positive definite <span class="math inline">\(4\times 4\)</span> matrices to be a correlation matrix of the proposed statistical model. In contrast, the first equation does identify the error variance <span class="math inline">\(Var(\varepsilon_1)\)</span> as <span class="math inline">\(Var(X_1)\)</span>.</p>
+</section>
+<section id="computing-the-elimination-ideal" class="level3">
+<h3 class="anchored" data-anchor-id="computing-the-elimination-ideal">Computing the Elimination Ideal</h3>
+<p>The displayed variety above does not contain linear polynomial of the form <span class="math inline">\(\lambda g_1(\Sigma) - g_2(\Sigma)\)</span> for <span class="math inline">\(\lambda \in \{\lambda_{13}, \lambda_{23}, \lambda_{34}\}\)</span>. It might however be possible to add or substract multiples of these polynomials to achieve such form. This procedure is implemented in the method <code>eliminate</code> by computing a Groebner basis and is carried out below.</p>
+<div id="8" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>elimination_admg <span class="op">=</span> <span class="fu">identify_parameters</span>(model_admg, <span class="cn">true</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print_dictionary</span>(elimination_admg)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Edge(1, 2)
+<pre><code>Edge(3, 4)
 Ideal generated by
-  l[1, 2]*s[1, 1] - s[1, 2]
+  s[1, 2]
+  -s[1, 3]*s[2, 4] + s[1, 4]*s[2, 3]
+  l[3, 4]*s[2, 3] - s[2, 4]
+  l[3, 4]*s[1, 3] - s[1, 4]
+
+Edge(1, 3)
+Ideal generated by
+  s[1, 2]
+  -s[1, 3]*s[2, 4] + s[1, 4]*s[2, 3]
+  l[1, 3]*s[1, 1] - s[1, 3]
+
 Edge(2, 3)
 Ideal generated by
-  l[2, 3]*s[1, 2] - s[1, 3]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  -w[1] + s[1, 1]
-  -l[1, 2]*w[1] + s[1, 2]
-  -l[1, 2]*l[2, 3]*w[1] + s[1, 3]
-  -l[1, 2]^2*w[1] - w[2] + s[2, 2]
-  -l[1, 2]^2*l[2, 3]*w[1] - l[2, 3]*w[2] - w[3, 2] + s[2, 3]
-  -l[1, 2]^2*l[2, 3]^2*w[1] - l[2, 3]^2*w[2] - 2*l[2, 3]*w[3, 2] - w[3] + s[3, 3]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  l[1, 2]*s[1, 1] - s[1, 2]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  l[2, 3]*s[1, 2] - s[1, 3]</code></pre>
+  s[1, 2]
+  -s[1, 3]*s[2, 4] + s[1, 4]*s[2, 3]</code></pre>
 </div>
 </div>
-<div id="8" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">contains_linear_poly</span>(J, l, nparams)</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  R <span class="op">=</span> <span class="fu">base_ring</span>(J)</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># find the position of l in gens(R) and can check the corresponding entry of the exponent vector for linearity</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  l_pos <span class="op">=</span> <span class="fu">findfirst</span>(<span class="op">==</span>(l), <span class="fu">gens</span>(R))</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> f <span class="kw">in</span> <span class="fu">gens</span>(J)</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    exps <span class="op">=</span> <span class="fu">exponents</span>(f)</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> v <span class="kw">in</span> exps</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> v[l_pos] <span class="op">==</span> <span class="fl">1</span> <span class="op">&amp;&amp;</span> <span class="fu">sum</span>(v[<span class="fl">1</span><span class="op">:</span>nparams]) <span class="op">==</span> <span class="fl">1</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> (<span class="cn">true</span>, f)</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">end</span></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> (<span class="cn">false</span>, <span class="fu">R</span>(<span class="fl">0</span>))</span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
+<p>Inspecting the first variety indicates that there exists with <span class="math inline">\(-\sigma_{13}\sigma_{24} + \sigma_{14}\sigma_{23}\)</span> a second requirement on the space of <span class="math inline">\(4\times 4\)</span> covariance matrices. By the completeness of the Groebner basis, there can not exist any other requirement. The last two polynomials, <span class="math display">\[
+\begin{align}
+&amp;\lambda_{34} \cdot \sigma_{23} - \sigma_{24} \\
+&amp;\lambda_{34} \cdot \sigma_{13} - \sigma_{14}
+\end{align}
+\]</span> both identify the parameter <span class="math inline">\(\lambda_{34}\)</span>. In contrast, the parameter <span class="math inline">\(\lambda_{13}\)</span> is generically nonidentifiable as there exists no suitable polynomial in the elimination variety. Statistically this is due to the overparameterization between <span class="math inline">\(X_2\)</span> and <span class="math inline">\(X_3\)</span> through the directed and bidirected edge. The method <code>contains_linear_poly</code> below finally filters all elimination variety polynomials for the required linear form which would imply generic parameter identifiablility. It returns one one of potentially many identification formulas.</p>
 <div id="10" class="cell" data-execution_count="1">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># directed graph</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fu">graph_from_edges</span>(Directed, [[<span class="fl">1</span>, <span class="fl">2</span>], [<span class="fl">1</span>, <span class="fl">3</span>], [<span class="fl">2</span>, <span class="fl">3</span>]]);</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">gaussian_graphical_model</span>(G);</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="fu">identify_parameters</span>(M))</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="co"># undirected graph</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fu">graph_from_edges</span>(Undirected, [[<span class="fl">1</span>, <span class="fl">2</span>], [<span class="fl">1</span>, <span class="fl">3</span>]]);</span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">gaussian_graphical_model</span>(G);</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="fu">identify_parameters</span>(M)) <span class="co"># what, why not identifiable? (empty ideal, see below)</span></span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="co"># unidentifiable parameters</span></span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>D <span class="op">=</span> [[<span class="fl">1</span>, <span class="fl">2</span>]];</span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>B <span class="op">=</span> [[<span class="fl">1</span>, <span class="fl">2</span>]];</span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fu">graph_from_edges</span>(Mixed, D, B);</span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">gaussian_graphical_model</span>(G);</span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="fu">identify_parameters</span>(M)) <span class="co"># what, why identifiable? -&gt; problem with the wrong entry names in the error covariance off-diagonal elements # fixed in 1.7</span></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="co"># comment on cyclic graphs</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">contains_linear_poly</span>(J, l, nparams)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  R <span class="op">=</span> <span class="fu">base_ring</span>(J)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># find the position of l in gens(R) and can check the corresponding entry of the exponent vector for linearity</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  l_pos <span class="op">=</span> <span class="fu">findfirst</span>(<span class="op">==</span>(l), <span class="fu">gens</span>(R))</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> f <span class="kw">in</span> <span class="fu">gens</span>(J)</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    exps <span class="op">=</span> <span class="fu">exponents</span>(f)</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> v <span class="kw">in</span> exps</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> v[l_pos] <span class="op">==</span> <span class="fl">1</span> <span class="op">&amp;&amp;</span> <span class="fu">sum</span>(v[<span class="fl">1</span><span class="op">:</span>nparams]) <span class="op">==</span> <span class="fl">1</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> (<span class="cn">true</span>, f)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>      <span class="cf">end</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">end</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> (<span class="cn">false</span>, <span class="fu">R</span>(<span class="fl">0</span>))</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="12" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>identification_admg <span class="op">=</span> <span class="fu">identify_parameters</span>(model_admg)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print_dictionary</span>(identification_admg)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Dict{Any, Any}(Edge(1, 2) =&gt; (true, l[1, 2]*s[1, 1] - s[1, 2]), Edge(1, 3) =&gt; (true, -l[1, 3]*s[1, 1]*s[2, 2] + l[1, 3]*s[1, 2]^2 - s[1, 2]*s[2, 3] + s[1, 3]*s[2, 2]), Edge(2, 3) =&gt; (true, -l[2, 3]*s[1, 1]*s[2, 2] + l[2, 3]*s[1, 2]^2 + s[1, 1]*s[2, 3] - s[1, 2]*s[1, 3]))
-Dict{Any, Any}(Edge(2, 1) =&gt; (false, 0), Edge(3, 1) =&gt; (false, 0))
-Dict{Any, Any}(Edge(1, 2) =&gt; (false, 0))</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  -w[1] + s[1, 1]
-  -l[1, 2]*w[1] + s[1, 2]
-  -l[1, 2]*l[2, 3]*w[1] - l[1, 3]*w[1] + s[1, 3]
-  -l[1, 2]^2*w[1] - w[2] + s[2, 2]
-  -l[1, 2]^2*l[2, 3]*w[1] - l[1, 2]*l[1, 3]*w[1] - l[2, 3]*w[2] + s[2, 3]
-  -l[1, 2]^2*l[2, 3]^2*w[1] - 2*l[1, 2]*l[1, 3]*l[2, 3]*w[1] - l[1, 3]^2*w[1] - l[2, 3]^2*w[2] - w[3] + s[3, 3]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  l[1, 2]*s[1, 1] - s[1, 2]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  -l[1, 3]*s[1, 1]*s[2, 2] + l[1, 3]*s[1, 2]^2 - s[1, 2]*s[2, 3] + s[1, 3]*s[2, 2]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  -l[2, 3]*s[1, 1]*s[2, 2] + l[2, 3]*s[1, 2]^2 + s[1, 1]*s[2, 3] - s[1, 2]*s[1, 3]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  k[2, 1]^2*k[3, 3]*s[1, 1] + k[3, 1]^2*k[2, 2]*s[1, 1] - k[1, 1]*k[2, 2]*k[3, 3]*s[1, 1] + k[2, 2]*k[3, 3]
-  k[2, 1]^2*k[3, 3]*s[1, 2] - k[2, 1]*k[3, 3] + k[3, 1]^2*k[2, 2]*s[1, 2] - k[1, 1]*k[2, 2]*k[3, 3]*s[1, 2]
-  k[2, 1]^2*k[3, 3]*s[1, 3] + k[3, 1]^2*k[2, 2]*s[1, 3] - k[3, 1]*k[2, 2] - k[1, 1]*k[2, 2]*k[3, 3]*s[1, 3]
-  k[2, 1]^2*k[3, 3]*s[2, 2] + k[3, 1]^2*k[2, 2]*s[2, 2] - k[3, 1]^2 - k[1, 1]*k[2, 2]*k[3, 3]*s[2, 2] + k[1, 1]*k[3, 3]
-  k[2, 1]^2*k[3, 3]*s[2, 3] + k[2, 1]*k[3, 1] + k[3, 1]^2*k[2, 2]*s[2, 3] - k[1, 1]*k[2, 2]*k[3, 3]*s[2, 3]
-  k[2, 1]^2*k[3, 3]*s[3, 3] - k[2, 1]^2 + k[3, 1]^2*k[2, 2]*s[3, 3] - k[1, 1]*k[2, 2]*k[3, 3]*s[3, 3] + k[1, 1]*k[2, 2]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  0</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  0</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  -w[1] + s[1, 1]
-  -l[1, 2]*w[1] - w[2, 1] + s[1, 2]
-  -l[1, 2]^2*w[1] - 2*l[1, 2]*w[2, 1] - w[2] + s[2, 2]</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<pre><code>Ideal generated by
-  0</code></pre>
+<pre><code>Edge(3, 4)
+(true, l[3, 4]*s[2, 3] - s[2, 4])
+
+Edge(1, 3)
+(true, l[1, 3]*s[1, 1] - s[1, 3])
+
+Edge(2, 3)
+(false, 0)</code></pre>
 </div>
 </div>
-<p>The resulting basis gives a sequential identification of the parameters from equations 5, 10, 4, 2. We can write equivalently</p>
-<p><span class="math display">\[
-\begin{matrix}
-w[1] =  s[1, 1] \\
-l[1, 2] =  s[1, 2] / s[1, 1] \\
-w[2] = (s[1, 1]*s[2, 2] - s[1, 2]^2 ) / s[1, 1]  \\
-l[2, 3] = s[2, 3] / s[2, 2]\\
-w[3] = (s[2, 2]*s[3, 3] -  s[2, 3]^2) / s[2, 2]
-\end{matrix}
-\]</span></p>
-<section id="open-points" class="level4">
-<h4 class="anchored" data-anchor-id="open-points">Open points</h4>
-<ul>
-<li><p>Bidirected edges</p></li>
-<li><p>Partial Identification and non-identification E.g. <span class="math inline">\(X_1 \to X_2 \quad X_3 \leftrightarrow X_4\)</span></p></li>
-<li><p>Selection of Groebner Basis Orderings</p></li>
-</ul>
+<p>As expected, we find the parameters <span class="math inline">\(\lambda_{34}\)</span> and <span class="math inline">\(\lambda_{12}\)</span> to be identified. The parameter <span class="math inline">\(\lambda_{23}\)</span> is not identifiable from the data.</p>
 </section>
+</section>
+<section id="directed-acyclic-graphs" class="level2">
+<h2 class="anchored" data-anchor-id="directed-acyclic-graphs">Directed Acyclic Graphs</h2>
+<p>The same methodology can be applied to graphical modelling with directed acyclic graphs (DAGs). Let the three-variate random vector <span class="math inline">\(X\)</span> be Markov to the following graph:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Tikz_Pictures/DAG.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="200"></p>
+</figure>
+</div>
+<div id="14" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fu">graph_from_edges</span>(Directed, [[<span class="fl">1</span>, <span class="fl">2</span>], [<span class="fl">2</span>, <span class="fl">3</span>]])</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">gaussian_graphical_model</span>(G)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">identify_parameters</span>(M)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">print_dictionary</span>(out)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Edge(1, 2)
+(true, l[1, 2]*s[1, 1] - s[1, 2])
+
+Edge(2, 3)
+(true, l[2, 3]*s[2, 2] - s[2, 3])</code></pre>
+</div>
+</div>
+<p>Both linear parameters <span class="math inline">\(\lambda_{12}\)</span> and <span class="math inline">\(\lambda_{23}\)</span>, corresponding to the edges <span class="math inline">\(X_1\rightarrow X_2\)</span> and <span class="math inline">\(X_2\rightarrow X_3\)</span>, are identified.</p>
+</section>
+<section id="undirected-graphs" class="level2">
+<h2 class="anchored" data-anchor-id="undirected-graphs">Undirected Graphs</h2>
+<p>For undirected graphical modelling, assume the three-variate random vector <span class="math inline">\(X\)</span> be Markov to the following graph:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Tikz_Pictures/Graph.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="200"></p>
+</figure>
+</div>
+<div id="16" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fu">graph_from_edges</span>(Undirected, [[<span class="fl">1</span>, <span class="fl">2</span>], [<span class="fl">2</span>, <span class="fl">3</span>]])</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">gaussian_graphical_model</span>(G)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">identify_parameters</span>(M)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">print_dictionary</span>(out)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Edge(3, 2)
+(false, 0)
+
+Edge(2, 1)
+(false, 0)</code></pre>
+</div>
+</div>
+<p>This model does not allow for any parameter identifiaction. The reason being that there exists a degree of freedom in scaling the precision matrix parameters <span class="math inline">\(K = \Sigma^{-1}\)</span> that returns the same covariance matrix. One possibility to restrict the model class is through coloring (Boege, https://arxiv.org/pdf/2404.04024)</p>
+<section id="colored-undirected-graphs" class="level3">
+<h3 class="anchored" data-anchor-id="colored-undirected-graphs">Colored Undirected Graphs</h3>
+<p>Coloring graphs couples parameters. For example, we assume in the graph below that the error variance on all components is equal. This is indicated by the red coloring.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Tikz_Pictures/Graph_color.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="200"></p>
+</figure>
+</div>
+<p>Computationally, coloring the graphs requires overloading the function <code>parameter ring</code> in <code>Oscar</code> (BOEGE, https://arxiv.org/pdf/2601.15807).</p>
+<div id="18" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="bu">Oscar</span>: parameter_ring, GraphDict, GraphMap</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> ColoredGGM{Undirected} <span class="op">=</span> GaussianGraphicalModel{</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a> Graph{Undirected}, <span class="pp">@NamedTuple</span>{color<span class="op">::</span><span class="dt">GraphMap{Undirected}</span>}</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a> }</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a> <span class="pp">@attr</span> <span class="dt">Tuple</span>{</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a> QQMPolyRing,</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a> GraphDict{QQMPolyRingElem}</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a> } <span class="kw">function</span> <span class="fu">parameter_ring</span>(GM<span class="op">::</span><span class="dt">ColoredGGM{Undirected}</span>)</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a> G <span class="op">=</span> <span class="fu">graph</span>(GM)</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a> colors <span class="op">=</span> <span class="fu">unique</span>([[G.color[<span class="cn">e</span>] for <span class="cn">e</span> <span class="kw">in</span> <span class="fu">edges</span>(G)];</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a> [G.color[v] for v <span class="kw">in</span> <span class="fu">vertices</span>(G)]])</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a> R, x <span class="op">=</span> <span class="fu">polynomial_ring</span>(QQ, <span class="fu">varnames</span>(GM)[<span class="op">:</span>k] <span class="op">=&gt;</span> colors)</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a> color_dict <span class="op">=</span> <span class="fu">Dict</span><span class="dt">{String, MPolyRingElem}</span>(</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a> color <span class="op">=&gt;</span> x[i] <span class="cf">for</span> (i, color) <span class="kw">in</span> <span class="fu">enumerate</span>(colors))</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a> gens_dict <span class="op">=</span> <span class="fu">GraphDict</span><span class="dt">{QQMPolyRingElem}</span>(</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a> <span class="fu">Dict</span><span class="dt">{Union{Int, Edge}, QQMPolyRingElem}</span>(<span class="fu">merge</span>(</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a> <span class="fu">Dict</span>(<span class="cn">e</span> <span class="op">=&gt;</span> color_dict[G.color[<span class="cn">e</span>]] <span class="cf">for</span> <span class="cn">e</span> <span class="kw">in</span> <span class="fu">edges</span>(G)),</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a> <span class="fu">Dict</span>(v <span class="op">=&gt;</span> color_dict[G.color[v]] <span class="cf">for</span> v <span class="kw">in</span> <span class="fu">vertices</span>(G))</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a> )))</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a> <span class="cf">return</span> R, gens_dict</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="20" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fu">graph_from_labeled_edges</span>(<span class="fu">Dict</span>((<span class="fl">1</span>, <span class="fl">2</span>) <span class="op">=&gt;</span> <span class="st">"2, 1"</span>, (<span class="fl">2</span>, <span class="fl">3</span>) <span class="op">=&gt;</span> <span class="st">"3, 2"</span>),</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>                                    <span class="fu">Dict</span>(<span class="fl">1</span> <span class="op">=&gt;</span> <span class="st">"red"</span>, <span class="fl">2</span> <span class="op">=&gt;</span> <span class="st">"red"</span>, <span class="fl">3</span> <span class="op">=&gt;</span> <span class="st">"red"</span>); name<span class="op">=:</span>color)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>M <span class="op">=</span> <span class="fu">gaussian_graphical_model</span>(G)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>K <span class="op">=</span> <span class="fu">concentration_matrix</span>(M)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="fu">show</span>(<span class="cn">stdout</span>, <span class="st">"text/plain"</span>, K); <span class="fu">println</span>(); <span class="fu">println</span>()</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> <span class="fu">identify_parameters</span>(M)</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="fu">print_dictionary</span>(out)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[ k[red]   k[2, 1]         0]
+[k[2, 1]    k[red]   k[3, 2]]
+[      0   k[3, 2]    k[red]]
+
+Edge(3, 2)
+(true, -k[3, 2]*s[1, 2]*s[2, 3] + k[3, 2]*s[1, 3]*s[2, 2])
+
+Edge(2, 1)
+(true, -k[2, 1]*s[1, 2]*s[2, 3] + k[2, 1]*s[1, 3]*s[2, 2])</code></pre>
+</div>
+</div>
+<p>Both parameters, <span class="math inline">\(k_{21}\)</span> and <span class="math inline">\(k_{32}\)</span> are now identifiable.</p>
+</section>
+</section>
+<section id="cyclic-graphs" class="level2">
+<h2 class="anchored" data-anchor-id="cyclic-graphs">Cyclic Graphs</h2>
+<p>The handling of cyclic graphs will be enabled in a future version of Oscar. Conceptually, this requires nothing new.</p>
 </section>
 </section>
 

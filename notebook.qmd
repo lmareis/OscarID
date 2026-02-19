@@ -7,6 +7,9 @@ authors: # see https://quarto.org/docs/journals/authors.html for further options
   - name: Anthony Della Vecchia
   - name: Bejamin Hollering
 engine: julia
+format:
+  html:
+    code-overflow: wrap
 ---
 
 # Generic Identification in Linear Causal Models with OSCAR
@@ -14,33 +17,41 @@ engine: julia
 | Resource | Information |
 |------------------------------------|------------------------------------|
 | Git + DOI | [Git]() [Zenodo]() |
-| Short Description | This notebook demonstrates the computational algebraic procedure to determine the identifiability of model parameters in linear Gaussian graphical models.|
+| Short Description | This notebook demonstrates the computational algebraic procedure to determine the identifiability of model parameters in linear graphical models. |
 
 : {.striped}
 
-## Background
+## Linear Structural Equation Models
 
-Gaussian graphical models specify the dependencies in a random variable $X$ via the linear structural equations $$ X = \Lambda^\top X  + \varepsilon \quad , \varepsilon \sim N(0, \Omega). $$ We assume that the parameter matrix $\Lambda$ is upper-triagonal. The resulting covariance matrix $\Sigma$ on a dataset $(X^{i})_{i \in [n]}$ defines the following system of equations: $$ Cov(X) = (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1} $$ These equations specify algebraic relations on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters. 
+Let $\Lambda \in \mathbb{R}^{d\times d}$ be an upper-diagonal design matrix and let $\varepsilon \sim P_\varepsilon$ be a centered random error vector with covariance matrix $\Omega$. A random variable $X$ is said to follow a linear model if it satisfies the structural equations $$ X = \Lambda^\top X  + \varepsilon. $$ The resulting covariance matrix $\Sigma$ on a dataset $(X^{i})_{i \in [n]}$ defines the following system of equations: $$\Sigma := Cov(X) = (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1} $$ These equations specify algebraic relations via polynomials on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters.
 
-## The Graph $X_1 \rightarrow X_2 \rightarrow X_3$
+## Acyclic Directed Mixed Graphs (ADMGs)
 
-In the following, we focus on the three-variate, normally-distributed random vector $X$ following the structural equation $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 \\ \lambda_{21} & 0 & 0 \\ 0 & \lambda_{32} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \quad , \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{pmatrix} \sim N(0, \begin{pmatrix} \omega_{11} & 0 & 0 \\ 0 & \omega_{22} & 0 \\ 0 & 0& \omega_{33} \end{pmatrix} ) $$ The direct effects $\lambda_{21}$ and $\lambda_{32}$ are parameters of interest and at the core of the study. There exists mathematical theory in the Half-Trek-Criterion on the identification of model parameters which is sufficient but not necessary (Foygel). Computational Algebra can check identifiability for each graphical as we will show next. The `Oscar` Package embedded in `Julia` provides necessary symbolic computation (citation Oscar).
+Let the four-variate random vector $X$ follow the structural equations $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 \\ \lambda_{12} & \lambda_{13} & 0 & 0 \\ 0 & 0 & \lambda_{34} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \\ \varepsilon_4 \end{pmatrix} \quad , Cov(\varepsilon) = \begin{pmatrix} \omega_{11} & 0 & 0 & 0 \\ 0 & \omega_{22} &  \omega_{23} & 0 \\ 0 & \omega_{23} & \omega_{33} &\omega_{34} \\ 0 & 0 & \omega_{34} & \omega_{44} \end{pmatrix}.$$ This random vector satisfies Markov properties indicating (conditional) independencies with respect to the following graph:
+
+![](Tikz_Pictures/ADMG.png){fig-align="center" width="200"}
+
+The direct effects $\lambda_{21}$, $\lambda_{31}$ and $\lambda_{43}$ correspond to edges in the graph are parameters of interest. In practice, direct effects can for example model the effectiveness of a medical drug, the effectiveness of an institutional policy or of machine settings on the manufacturing quality. Experts or statistical structure learning can infer a potential graph inducing a structural model in which parameters are to be estimated.
+
+There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (Foygel). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All symbolic computations are performed in the `Oscar` Package embedded in `Julia` (citation Oscar).
 
 ```{julia}
 #| output: false
-#using Pkg
-#Pkg.add("Oscar")
 using Oscar
 ```
 
+### Computing the Model Variety
+
+The polynomial equations induced by the covariance relations define an *ideal*, which is an algebraic null-set. This ideal consists of all model parameter configurations and covariance matrices that are aligned with the statistical model. A variety is a set of polynomial equations whose null-set is the ideal. Strategically reducing the variety and checking whether there exist a linear polynomial $$\lambda_{ij} g_1(\Sigma) - g_2(\Sigma)$$ *generically* identifies the parameter $\lambda_{ij}$ (Sullivant, Proposition 16.1.8). Buchberger's algorithm and variants for computing Groebner Basis eliminate the superflous model parameters after finite reductions. If the parameter is *generically nonidentifiable*, the finite reductions will return no such suitable polynomial. The following code chunk computes the variety for our ADMG example.
 
 ```{julia}
 #| output: false
-function identify_parameters(M::GraphicalModel, return_ideal = false)
+function identify_parameters(M::GraphicalModel, 
+                             return_elimination_ideal = false,
+                             return_ideal = false)
 
   # get graph data from the model
   G = graph(M)
-  
   if typeof(G) === Oscar.MixedGraph
     E = edges(G, Directed)
   else
@@ -57,7 +68,9 @@ function identify_parameters(M::GraphicalModel, return_ideal = false)
   inject_R = hom(R, elim_ring, elim_gens[1:ngens(R)])
   inject_S = hom(S, elim_ring, elim_gens[ngens(R) + 1:ngens(elim_ring)])
   I = ideal([inject_S(s)*inject_R(denominator(phi(s))) - inject_R(numerator(phi(s))) for s in gens(S)])
-  display(I)
+  if return_ideal
+    return I
+  end
   
   # eliminate
   out = Dict()
@@ -65,8 +78,7 @@ function identify_parameters(M::GraphicalModel, return_ideal = false)
     l = t[e]
     other_params = [inject_R(i) for i in values(t) if i != l]
     J = eliminate(I, other_params)
-    display(J)
-    if return_ideal
+    if return_elimination_ideal
       out[e] = J
     else
       out[e] = contains_linear_poly(J, inject_R(l), ngens(R))
@@ -75,33 +87,51 @@ function identify_parameters(M::GraphicalModel, return_ideal = false)
   
   return out
 end
-```
 
-
-We discuss the individual functionalities of the function `identify_parameters`. Fist, a Groebner basis is a special set of polynomials generating an ideal. # ordering
-
-1.  The parameter polynomial ring `P` over the rationals covers the entries of $\Lambda$ and $\Omega$. Similarly, the model polynomial ring `S` over the rationals represents the covariance matrix entries. To represent the equations $X = \Lambda^\top X  + \varepsilon$, we must define a ring `R` on the joint generators. 
-2.  There exist canonical homomorphisms of the polynomial rings `P` and `S` to the joint ring `R` with which the design and covariance matrix can be mapped. This enables us to define the characterizing moment equation. Its vanishing ideal, i.e. the polynomial null-set, characterize all parameter configurations.
-2.  The Groebner basis computation iteratively reduces the equation system according to the given ordering. We say that a parameter is identified, if it is a unique function of the covariance matrix and of already identified parameters.
-
-In the next code chunk, we employ the Groebner basis computation on the path $$ X_1 \longrightarrow X_2 \longrightarrow X_3 .$$
-
-```{julia}
-# mixed graph with hidden variables
-D = [[1, 2], [2, 3]];
-B = [[2, 3]];
-G = graph_from_edges(Mixed, D, B);
-M = gaussian_graphical_model(G);
-
-# return the full ideal
-out = identify_parameters(M, true);
-for edge in keys(out) 
-  println(edge) 
-  show(stdout, "text/plain", out[edge]) 
-  println()
+function print_dictionary(out::Dict{Any, Any})
+    for (i, edge) in enumerate(keys(out))
+        println(edge)
+        show(stdout, "text/plain", out[edge])
+        println()
+        if i < length(out)
+            println()
+        end
+    end
 end
 ```
 
+```{julia}
+directed_edges = [[1, 3], [2, 3], [3, 4]]
+bidirected_edges = [[2, 3], [3, 4]]
+graph_admg = graph_from_edges(Mixed, directed_edges, bidirected_edges)
+model_admg = gaussian_graphical_model(graph_admg)
+
+variety_admg = identify_parameters(model_admg, false, true)
+display(variety_admg)
+```
+
+The function `identify_parameters` creates a joint polynomial ring on the entries of $\Lambda$ (`l[i, j]`), $\Omega$ (`w[i]`) and $\Sigma$ (`s[i, j]`). Note that we call the function `gaussian_graphical_model` although the error might be non-Gaussian. This is fine. It solely provides the necessary covariance relations after calling the method `parametrization` on the returned model. The variety is constructed from the polynomial relations $$(- (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1})_{ij} -  \Sigma_{ij} = 0 \quad \forall i,j \in [d]$$ on the joint ring. The left-hand-side, as a potential rational function in the parameter ring, is handled though the `numerator` and `denominator` methods. The model generators are the $\Sigma_{ij}$ entries `s[i, j]`.
+
+In our example, the second variety polynomial $\sigma_{21}$ encodes that $X_1$ and $X_2$ are uncorrelated. This is the only visible requirement on the space of positive definite $4\times 4$ matrices to be a correlation matrix of the proposed statistical model. In contrast, the first equation does identify the error variance $Var(\varepsilon_1)$ as $Var(X_1)$. 
+
+### Computing the Elimination Ideal
+
+The displayed variety above does not contain linear polynomial of the form $\lambda g_1(\Sigma) - g_2(\Sigma)$ for $\lambda \in \{\lambda_{13}, \lambda_{23}, \lambda_{34}\}$. It might however be possible to add or substract multiples of these polynomials to achieve such form. This procedure is implemented in the method `eliminate` by computing a Groebner basis and is carried out below. 
+
+```{julia}
+elimination_admg = identify_parameters(model_admg, true)
+print_dictionary(elimination_admg)
+```
+
+Inspecting the first variety indicates that there exists with $-\sigma_{13}\sigma_{24} + \sigma_{14}\sigma_{23}$ a second requirement on the space of $4\times 4$ covariance matrices. By the completeness of the Groebner basis, there can not exist any other requirement. The last two polynomials, 
+$$ 
+\begin{align}
+&\lambda_{34} \cdot \sigma_{23} - \sigma_{24} \\ 
+&\lambda_{34} \cdot \sigma_{13} - \sigma_{14}
+\end{align}
+$$
+both identify the parameter $\lambda_{34}$. In contrast, the parameter $\lambda_{13}$ is generically nonidentifiable as there exists no suitable polynomial in the elimination variety. Statistically this is due to the overparameterization between $X_2$ and $X_3$ through the directed and bidirected edge.
+The method `contains_linear_poly` below finally filters all elimination variety polynomials for the required linear form which would imply generic parameter identifiablility. It returns one one of potentially many identification formulas.
 
 ```{julia}
 #| output: false
@@ -126,44 +156,93 @@ end
 ```
 
 ```{julia}
-# directed graph
-G = graph_from_edges(Directed, [[1, 2], [1, 3], [2, 3]]);
-M = gaussian_graphical_model(G);
-println(identify_parameters(M))
-
-# undirected graph
-G = graph_from_edges(Undirected, [[1, 2], [1, 3]]);
-M = gaussian_graphical_model(G);
-println(identify_parameters(M)) # what, why not identifiable? (empty ideal, see below)
-
-# unidentifiable parameters
-D = [[1, 2]];
-B = [[1, 2]];
-G = graph_from_edges(Mixed, D, B);
-M = gaussian_graphical_model(G);
-println(identify_parameters(M)) # what, why identifiable? -> problem with the wrong entry names in the error covariance off-diagonal elements # fixed in 1.7
-
-# comment on cyclic graphs
+identification_admg = identify_parameters(model_admg)
+print_dictionary(identification_admg)
 ```
 
+As expected, we find the parameters $\lambda_{34}$ and $\lambda_{12}$ to be identified. The parameter $\lambda_{23}$ is not identifiable from the data.
 
+## Directed Acyclic Graphs
 
-The resulting basis gives a sequential identification of the parameters from equations 5, 10, 4, 2. We can write equivalently
+The same methodology can be applied to graphical modelling with directed acyclic graphs (DAGs). Let the three-variate random vector $X$ be Markov to the following graph:
 
-$$ 
-\begin{matrix}
-w[1] =  s[1, 1] \\ 
-l[1, 2] =  s[1, 2] / s[1, 1] \\ 
-w[2] = (s[1, 1]*s[2, 2] - s[1, 2]^2 ) / s[1, 1]  \\
-l[2, 3] = s[2, 3] / s[2, 2]\\ 
-w[3] = (s[2, 2]*s[3, 3] -  s[2, 3]^2) / s[2, 2]
-\end{matrix}
-$$
+![](Tikz_Pictures/DAG.png){fig-align="center" width="200"}
 
-#### Open points
+```{julia}
+G = graph_from_edges(Directed, [[1, 2], [2, 3]])
+M = gaussian_graphical_model(G)
+out = identify_parameters(M)
+print_dictionary(out)
+```
 
--   Bidirected edges
+Both linear parameters $\lambda_{12}$ and $\lambda_{23}$, corresponding to the edges $X_1\rightarrow X_2$ and  $X_2\rightarrow X_3$, are identified.
 
--   Partial Identification and non-identification E.g. $X_1 \to X_2 \quad X_3 \leftrightarrow X_4$
+## Undirected Graphs
 
--   Selection of Groebner Basis Orderings
+For undirected graphical modelling, assume the three-variate random vector $X$ be Markov to the following graph:
+
+![](Tikz_Pictures/Graph.png){fig-align="center" width="200"}
+
+```{julia}
+G = graph_from_edges(Undirected, [[1, 2], [2, 3]])
+M = gaussian_graphical_model(G)
+out = identify_parameters(M)
+print_dictionary(out)
+```
+
+This model does not allow for any parameter identifiaction. The reason being that there exists a degree of freedom in scaling the precision matrix parameters $K = \Sigma^{-1}$ that returns the same covariance matrix.
+One possibility to restrict the model class is through coloring (Boege, https://arxiv.org/pdf/2404.04024)
+
+### Colored Undirected Graphs
+
+Coloring graphs couples parameters. For example, we assume in the graph below that the error variance on all components is equal. This is indicated by the red coloring.
+
+![](Tikz_Pictures/Graph_color.png){fig-align="center" width="200"}
+
+Computationally, coloring the graphs requires overloading the function `parameter ring` in `Oscar` (BOEGE, https://arxiv.org/pdf/2601.15807).
+
+```{julia}
+#| output: false
+import Oscar: parameter_ring, GraphDict, GraphMap
+
+const ColoredGGM{Undirected} = GaussianGraphicalModel{
+ Graph{Undirected}, @NamedTuple{color::GraphMap{Undirected}}
+ }
+
+ @attr Tuple{
+ QQMPolyRing,
+ GraphDict{QQMPolyRingElem}
+ } function parameter_ring(GM::ColoredGGM{Undirected})
+ G = graph(GM)
+ colors = unique([[G.color[e] for e in edges(G)];
+ [G.color[v] for v in vertices(G)]])
+ R, x = polynomial_ring(QQ, varnames(GM)[:k] => colors)
+ color_dict = Dict{String, MPolyRingElem}(
+ color => x[i] for (i, color) in enumerate(colors))
+
+ gens_dict = GraphDict{QQMPolyRingElem}(
+ Dict{Union{Int, Edge}, QQMPolyRingElem}(merge(
+ Dict(e => color_dict[G.color[e]] for e in edges(G)),
+ Dict(v => color_dict[G.color[v]] for v in vertices(G))
+ )))
+    
+ return R, gens_dict
+end
+```
+
+```{julia}
+G = graph_from_labeled_edges(Dict((1, 2) => "2, 1", (2, 3) => "3, 2"),
+                                    Dict(1 => "red", 2 => "red", 3 => "red"); name=:color)
+M = gaussian_graphical_model(G)
+K = concentration_matrix(M)
+show(stdout, "text/plain", K); println(); println()
+
+out = identify_parameters(M)
+print_dictionary(out)
+```
+
+Both parameters, $k_{21}$ and $k_{32}$ are now identifiable.
+
+## Cyclic Graphs
+
+The handling of cyclic graphs will be enabled in a future version of Oscar. Conceptually, this requires nothing new.
