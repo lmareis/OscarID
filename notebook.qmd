@@ -235,7 +235,7 @@ end
 
 ```{julia}
 G = graph_from_labeled_edges(Dict((1, 2) => "2, 1", (2, 3) => "3, 2"),
-                                    Dict(1 => "red", 2 => "red", 3 => "red"); 
+                             Dict(1 => "red", 2 => "red", 3 => "red"); 
                              name=:color)
 M = gaussian_graphical_model(G)
 K = concentration_matrix(M)
