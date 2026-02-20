@@ -17,7 +17,7 @@ engine: julia
 
 | Resource | Information |
 |------------------------------------|------------------------------------|
-| Git + DOI | [Git]() [Zenodo]() |
+| Git + DOI | [Git](https://github.com/lmareis/OscarID) [Zenodo](doi.org/10.5281/zenodo.18709429) |
 | Short Description | This notebook demonstrates the computational algebraic procedure to determine the identifiability of model parameters in linear graphical models. |
 
 : {.striped}
