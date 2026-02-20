@@ -33,7 +33,7 @@ Let the four-variate random vector $X$ follow the structural equations $$ \begin
 
 The direct effects $\lambda_{21}$, $\lambda_{31}$ and $\lambda_{43}$ correspond to edges in the graph are parameters of interest. In practice, direct effects can for example model the effectiveness of a medical drug, the effectiveness of an institutional policy or of machine settings on the manufacturing quality. Experts or statistical structure learning can infer a potential graph inducing a structural model in which parameters are to be estimated.
 
-There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (Foygel). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All symbolic computations are performed in the `Oscar` Package embedded in `Julia` (citation Oscar).
+There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (@Foygel2012). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All symbolic computations are performed in the `Oscar` Package embedded in `Julia` (@OSCAR).
 
 ```{julia}
 #| output: false
@@ -42,7 +42,7 @@ using Oscar
 
 ### Computing the Model Variety
 
-The polynomial equations induced by the covariance relations define an *ideal*, which is an algebraic null-set. This ideal consists of all model parameter configurations and covariance matrices that are aligned with the statistical model. A variety is a set of polynomial equations whose null-set is the ideal. Strategically reducing the variety and checking whether there exist a linear polynomial $$\lambda_{ij} g_1(\Sigma) - g_2(\Sigma)$$ *generically* identifies the parameter $\lambda_{ij}$ (Sullivant, Proposition 16.1.8). Buchberger's algorithm and variants for computing Groebner Basis eliminate the superflous model parameters after finite reductions. If the parameter is *generically nonidentifiable*, the finite reductions will return no such suitable polynomial. The following code chunk computes the variety for our ADMG example.
+The polynomial equations induced by the covariance relations define an *ideal*, which is an algebraic null-set. This ideal consists of all model parameter configurations and covariance matrices that are aligned with the statistical model. A variety is a set of polynomial equations whose null-set is the ideal. Strategically reducing the variety and checking whether there exist a linear polynomial $$\lambda_{ij} g_1(\Sigma) - g_2(\Sigma)$$ *generically* identifies the parameter $\lambda_{ij}$ (@sullivant2023algebraic, Proposition 16.1.8). Buchberger's algorithm and variants for computing Groebner Basis eliminate the superflous model parameters after finite reductions. If the parameter is *generically nonidentifiable*, the finite reductions will return no such suitable polynomial. The following code chunk computes the variety for our ADMG example.
 
 ```{julia}
 #| output: false
@@ -191,7 +191,7 @@ print_dictionary(out)
 ```
 
 This model does not allow for any parameter identifiaction. The reason being that there exists a degree of freedom in scaling the precision matrix parameters $K = \Sigma^{-1}$ that returns the same covariance matrix.
-One possibility to restrict the model class is through coloring (Boege, https://arxiv.org/pdf/2404.04024)
+One possibility to restrict the model class is through coloring (@boege2025coloured).
 
 ### Colored Undirected Graphs
 
@@ -199,7 +199,7 @@ Coloring graphs couples parameters. For example, we assume in the graph below th
 
 ![](Tikz_Pictures/Graph_color.png){fig-align="center" width="200"}
 
-Computationally, coloring the graphs requires overloading the function `parameter ring` in `Oscar` (BOEGE, https://arxiv.org/pdf/2601.15807).
+Computationally, coloring the graphs requires overloading the function `parameter ring` in `Oscar` (@boege2026algebraic).
 
 ```{julia}
 #| output: false
