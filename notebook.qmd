@@ -18,8 +18,8 @@ engine: julia
 
 | Resource | Information |
 |------------------------------------|------------------------------------|
-| Git + DOI | [Git](https://github.com/lmareis/OscarID) [Zenodo](doi.org/10.5281/zenodo.18709429) |
-| Short Description | This notebook demonstrates the computational algebraic procedure to determine the identifiability of model parameters in linear graphical models. |
+| Git + DOI | [Git](https://github.com/lmareis/OscarID) [Zenodo](https://doi.org/10.5281/zenodo.18709429) |
+| Short Description | This notebook demonstrates the computational algebraic procedure in OSCAR to determine the identifiability of model parameters in linear graphical models. |
 
 : {.striped}
 
@@ -38,7 +38,6 @@ The direct effects $\lambda_{21}$, $\lambda_{31}$ and $\lambda_{43}$ correspond 
 There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (@Foygel2012). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All symbolic computations are performed in the `Oscar` Package embedded in `Julia` (@OSCAR).
 
 ```{julia}
-#| output: false
 using Oscar
 ```
 
