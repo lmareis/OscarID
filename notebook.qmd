@@ -1,4 +1,5 @@
 ---
+bibliography: references.bib 
 authors:
   - name: Leopold Mareis
     orcid: 0000-0002-2624-6522
