@@ -25,7 +25,7 @@ engine: julia
 
 ## Linear Structural Equation Models
 
-Let $\Lambda \in \mathbb{R}^{d\times d}$ be an upper-diagonal design matrix and let $\varepsilon \sim P_\varepsilon$ be a centered random error vector with covariance matrix $\Omega$. A random variable $X$ is said to follow a linear model if it satisfies the structural equations $$ X = \Lambda^\top X  + \varepsilon. $$ The resulting covariance matrix $\Sigma$ on a dataset $(X^{i})_{i \in [n]}$ defines the following system of equations: $$\Sigma := Cov(X) = (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1} $$ These equations specify algebraic relations via polynomials on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters.
+Let $\Lambda \in \mathbb{R}^{d\times d}$ be an upper-diagonal design matrix and let $\varepsilon \sim P_\varepsilon$ be a centered random error vector with covariance matrix $\Omega$. A random variable $X$ is said to follow a linear model if it satisfies the structural equations $$ X = \Lambda^\top X  + \varepsilon. $$ The resulting covariance matrix $\Sigma$ on a dataset $(X^{i})_{i \in [n]}$ defines the following system of equations: $$\Sigma := Cov(X) = (Id - \Lambda)^{-T} \Omega (Id - \Lambda)^{-1} $$ These equations specify algebraic relations via polynomials on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters.
 
 ## Acyclic Directed Mixed Graphs (ADMGs)
 
@@ -35,7 +35,7 @@ Let the four-variate random vector $X$ follow the structural equations $$ \begin
 
 The direct effects $\lambda_{21}$, $\lambda_{31}$ and $\lambda_{43}$ correspond to edges in the graph are parameters of interest. In practice, direct effects can for example model the effectiveness of a medical drug, the effectiveness of an institutional policy or of machine settings on the manufacturing quality. Experts or statistical structure learning can infer a potential graph inducing a structural model in which parameters are to be estimated.
 
-There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (@Foygel2012). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All symbolic computations are performed in the `Oscar` Package embedded in `Julia` (@OSCAR).
+There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (@Foygel2012). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All symbolic computations are performed in the `OSCAR` Package embedded in `Julia` (@OSCAR).
 
 ```{julia}
 using Oscar
@@ -179,73 +179,6 @@ print_dictionary(out)
 
 Both linear parameters $\lambda_{12}$ and $\lambda_{23}$, corresponding to the edges $X_1\rightarrow X_2$ and  $X_2\rightarrow X_3$, are identified.
 
-## Undirected Graphs
-
-For undirected graphical modelling, assume the three-variate random vector $X$ be Markov to the following graph:
-
-![](Tikz_Pictures/Graph.png){fig-align="center" width="200"}
-
-```{julia}
-G = graph_from_edges(Undirected, [[1, 2], [2, 3]])
-M = gaussian_graphical_model(G)
-out = identify_parameters(M)
-print_dictionary(out)
-```
-
-This model does not allow for any parameter identifiaction. The reason being that there exists a degree of freedom in scaling the precision matrix parameters $K = \Sigma^{-1}$ that returns the same covariance matrix.
-One possibility to restrict the model class is through coloring (@boege2025coloured).
-
-### Colored Undirected Graphs
-
-Coloring graphs couples parameters. For example, we assume in the graph below that the error variance on all components is equal. This is indicated by the red coloring.
-
-![](Tikz_Pictures/Graph_color.png){fig-align="center" width="200"}
-
-Computationally, coloring the graphs requires overloading the function `parameter ring` in `Oscar` (@boege2026algebraic).
-
-```{julia}
-#| output: false
-import Oscar: parameter_ring, GraphDict, GraphMap
-
-const ColoredGGM{Undirected} = GaussianGraphicalModel{
-  Graph{Undirected}, @NamedTuple{color::GraphMap{Undirected}}
-}
-
-@attr Tuple{
-  QQMPolyRing,
-  GraphDict{QQMPolyRingElem}
-} function parameter_ring(GM::ColoredGGM{Undirected})
-  G = graph(GM)
-  colors = unique([
-    [G.color[e] for e in edges(G)]; [G.color[v] for v in vertices(G)]
-  ])
-  R, x = polynomial_ring(QQ, varnames(GM)[:k] => colors)
-  color_dict = Dict{String, MPolyRingElem}(
-    color => x[i] for (i, color) in enumerate(colors))
-
-  gens_dict = GraphDict{QQMPolyRingElem}(
-    Dict{Union{Int, Edge}, QQMPolyRingElem}(merge(
-      Dict(e => color_dict[G.color[e]] for e in edges(G)),
-      Dict(v => color_dict[G.color[v]] for v in vertices(G))
-  )))
-    
-  return R, gens_dict
-end
-```
-
-```{julia}
-G = graph_from_labeled_edges(Dict((1, 2) => "2, 1", (2, 3) => "3, 2"),
-                             Dict(1 => "red", 2 => "red", 3 => "red"); 
-                             name=:color)
-M = gaussian_graphical_model(G)
-K = concentration_matrix(M)
-show(stdout, "text/plain", K); println(); println()
-
-out = identify_parameters(M)
-print_dictionary(out)
-```
-
-Both parameters, $k_{21}$ and $k_{32}$ are now identifiable.
 
 ## Cyclic Graphs
 
