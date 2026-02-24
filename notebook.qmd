@@ -11,6 +11,9 @@ authors:
   - name: Bejamin Hollering
     orcid: 0000-0003-3803-2879
     affiliation: "Max Planck Institute for Mathematics in the Sciences"
+  - name: Mathias Drton
+    orcid: 0000-0001-5614-3025
+    affiliation: "Technical University of Munich "
 engine: julia
 ---
 
