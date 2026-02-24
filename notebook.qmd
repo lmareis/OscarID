@@ -29,13 +29,13 @@ Let $\Lambda \in \mathbb{R}^{d\times d}$ be an upper-diagonal design matrix and 
 
 ## Acyclic Directed Mixed Graphs (ADMGs)
 
-Let the four-variate random vector $X$ follow the structural equations $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 \\ \lambda_{12} & \lambda_{13} & 0 & 0 \\ 0 & 0 & \lambda_{34} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \\ \varepsilon_4 \end{pmatrix} \quad , Cov(\varepsilon) = \begin{pmatrix} \omega_{11} & 0 & 0 & 0 \\ 0 & \omega_{22} &  \omega_{23} & 0 \\ 0 & \omega_{23} & \omega_{33} &\omega_{34} \\ 0 & 0 & \omega_{34} & \omega_{44} \end{pmatrix}.$$ This random vector satisfies Markov properties indicating (conditional) independencies with respect to the following graph:
+Let the four-variate random vector $X$ follow the structural equations $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 \\ \lambda_{12} & \lambda_{13} & 0 & 0 \\ 0 & 0 & \lambda_{34} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \\ \varepsilon_4 \end{pmatrix}, \quad  Cov(\varepsilon) = \begin{pmatrix} \omega_{11} & 0 & 0 & 0 \\ 0 & \omega_{22} &  \omega_{23} & 0 \\ 0 & \omega_{23} & \omega_{33} &\omega_{34} \\ 0 & 0 & \omega_{34} & \omega_{44} \end{pmatrix}.$$ This random vector satisfies Markov properties indicating (conditional) independencies with respect to the following graph:
 
 ![](Tikz_Pictures/ADMG.png){fig-align="center" width="200"}
 
 The direct effects $\lambda_{21}$, $\lambda_{31}$ and $\lambda_{43}$ correspond to edges in the graph are parameters of interest. In practice, direct effects can for example model the effectiveness of a medical drug, the effectiveness of an institutional policy or of machine settings on the manufacturing quality. Experts or statistical structure learning can infer a potential graph inducing a structural model in which parameters are to be estimated.
 
-There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (@Foygel2012). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All symbolic computations are performed in the `OSCAR` Package embedded in `Julia` (@OSCAR).
+There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (@Foygel2012). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All following symbolic computations are performed in the `OSCAR` Package embedded in `Julia` (@OSCAR).
 
 ```{julia}
 using Oscar
@@ -43,7 +43,7 @@ using Oscar
 
 ### Computing the Model Variety
 
-The polynomial equations induced by the covariance relations define an *ideal*, which is an algebraic null-set. This ideal consists of all model parameter configurations and covariance matrices that are aligned with the statistical model. A variety is a set of polynomial equations whose null-set is the ideal. Strategically reducing the variety and checking whether there exist a linear polynomial $$\lambda_{ij} g_1(\Sigma) - g_2(\Sigma)$$ *generically* identifies the parameter $\lambda_{ij}$ (@sullivant2023algebraic, Proposition 16.1.8). Buchberger's algorithm and variants for computing Groebner Basis eliminate the superflous model parameters after finite reductions. If the parameter is *generically nonidentifiable*, the finite reductions will return no such suitable polynomial. The following code chunk computes the variety for our ADMG example.
+The polynomial equations induced by the covariance relations characterize a *variety*, which is an algebraic null-set. This variety consists of all model parameter configurations and covariance matrices that are aligned with the statistical model. An ideal is a space of polynomial equations whose null-set is the variety. Strategically reducing a set of polynomials generating the ideal (generators) and checking whether there exist a linear polynomial $$\lambda_{ij} g_1(\Sigma) - g_2(\Sigma)$$ *generically* identifies the parameter $\lambda_{ij}$ (@sullivant2023algebraic, Proposition 16.1.8). Buchberger's algorithm and variants for computing Groebner Basis eliminate the superflous model parameters from the generators after finite reductions. If the parameter is *generically nonidentifiable*, the finite reductions will return no such suitable generator. The following code chunk computes the ideal for our ADMG example.
 
 ```{julia}
 #| output: false
@@ -109,24 +109,24 @@ bidirected_edges = [[2, 3], [3, 4]]
 graph_admg = graph_from_edges(Mixed, directed_edges, bidirected_edges)
 model_admg = gaussian_graphical_model(graph_admg)
 
-variety_admg = identify_parameters(model_admg, false, true)
-display(variety_admg)
+generators_ideal_admg = identify_parameters(model_admg, false, true)
+display(generators_ideal_admg)
 ```
 
-The function `identify_parameters` creates a joint polynomial ring on the entries of $\Lambda$ (`l[i, j]`), $\Omega$ (`w[i]`) and $\Sigma$ (`s[i, j]`). Note that we call the function `gaussian_graphical_model` although the error might be non-Gaussian. This is fine. It solely provides the necessary covariance relations after calling the method `parametrization` on the returned model. The variety is constructed from the polynomial relations $$(- (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1})_{ij} -  \Sigma_{ij} = 0 \quad \forall i,j \in [d]$$ on the joint ring. The left-hand-side, as a potential rational function in the parameter ring, is handled though the `numerator` and `denominator` methods. The model generators are the $\Sigma_{ij}$ entries `s[i, j]`.
+The function `identify_parameters` creates a joint polynomial ring on the entries of $\Lambda$ (`l[i, j]`), $\Omega$ (`w[i]`) and $\Sigma$ (`s[i, j]`). Note that we call the function `gaussian_graphical_model` although the error might be non-Gaussian. This is fine. It solely provides the necessary covariance relations after calling the method `parametrization` on the returned model. The ideal is constructed from the polynomial relations $$(- (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1})_{ij} -  \Sigma_{ij} = 0 \quad \forall i,j \in [d]$$ on the joint ring. The left-hand-side, as a potential rational function in the parameter ring, is handled though the `numerator` and `denominator` methods. The model ideal generators are the $\Sigma_{ij}$ entries `s[i, j]`.
 
-In our example, the second variety polynomial $\sigma_{21}$ encodes that $X_1$ and $X_2$ are uncorrelated. This is the only visible requirement on the space of positive definite $4\times 4$ matrices to be a correlation matrix of the proposed statistical model. In contrast, the first equation does identify the error variance $Var(\varepsilon_1)$ as $Var(X_1)$. 
+In our example, the second generator $(\Omega, \Lambda, \Sigma) \mapsto \sigma_{21}$ encodes that $X_1$ and $X_2$ are uncorrelated. This is the only visible requirement on the space of positive definite $4\times 4$ matrices to be a correlation matrix of the proposed statistical model. In contrast, the first generator $(\Omega, \Lambda, \Sigma) \mapsto -\omega_{11} + \sigma_{11}$ already identify the error variance $Var(\varepsilon_1)$ as $Var(X_1)$. 
 
 ### Computing the Elimination Ideal
 
-The displayed variety above does not contain linear polynomial of the form $\lambda g_1(\Sigma) - g_2(\Sigma)$ for $\lambda \in \{\lambda_{13}, \lambda_{23}, \lambda_{34}\}$. It might however be possible to add or substract multiples of these polynomials to achieve such form. This procedure is implemented in the method `eliminate` by computing a Groebner basis and is carried out below. 
+The generator set above does not contain linear polynomials of the form $\lambda g_1(\Sigma) - g_2(\Sigma)$ for $\lambda \in \{\lambda_{13}, \lambda_{23}, \lambda_{34}\}$. It might however be possible to add or substract multiples of the generators to achieve such form. This procedure is implemented in the method `eliminate` by computing a Groebner basis and is carried out below. 
 
 ```{julia}
 elimination_admg = identify_parameters(model_admg, true)
 print_dictionary(elimination_admg)
 ```
 
-Inspecting the first variety indicates that there exists with $-\sigma_{13}\sigma_{24} + \sigma_{14}\sigma_{23}$ a second requirement on the space of $4\times 4$ covariance matrices. By the completeness of the Groebner basis, there can not exist any other requirement. The last two polynomials, 
+Inspecting the first generator indicates that there exists with $-\sigma_{13}\sigma_{24} + \sigma_{14}\sigma_{23}$ a second requirement on the space of $4\times 4$ covariance matrices. By the completeness of the Groebner basis on our specified ordering, there can not exist any other requirement. The last two polynomials, 
 $$ 
 \begin{align}
 &\lambda_{34} \cdot \sigma_{23} - \sigma_{24} \\ 
@@ -134,7 +134,7 @@ $$
 \end{align}
 $$
 both identify the parameter $\lambda_{34}$. In contrast, the parameter $\lambda_{13}$ is generically nonidentifiable as there exists no suitable polynomial in the elimination variety. Statistically this is due to the overparameterization between $X_2$ and $X_3$ through the directed and bidirected edge.
-The method `contains_linear_poly` below finally filters all elimination variety polynomials for the required linear form which would imply generic parameter identifiablility. It returns one one of potentially many identification formulas.
+The method `contains_linear_poly` below finally filters all generators for the required linear form which would imply generic parameter identifiablility. It returns one one of potentially many identification formulas.
 
 ```{julia}
 #| output: false
@@ -166,7 +166,7 @@ As expected, we find the parameters $\lambda_{34}$ and $\lambda_{12}$ to be iden
 
 ## Directed Acyclic Graphs
 
-The same methodology can be applied to graphical modelling with directed acyclic graphs (DAGs). Let the three-variate random vector $X$ be Markov to the following graph:
+As a sanity check, we apply the same methodology to graphical modelling with directed acyclic graphs (DAGs). Let the three-variate random vector $X$ be Markov to the following graph:
 
 ![](Tikz_Pictures/DAG.png){fig-align="center" width="200"}
 
@@ -177,7 +177,7 @@ out = identify_parameters(M)
 print_dictionary(out)
 ```
 
-Both linear parameters $\lambda_{12}$ and $\lambda_{23}$, corresponding to the edges $X_1\rightarrow X_2$ and  $X_2\rightarrow X_3$, are identified.
+Both linear parameters $\lambda_{12}$ and $\lambda_{23}$, corresponding to the edges $X_1\rightarrow X_2$ and  $X_2\rightarrow X_3$, are identified through regression on the parents.
 
 
 ## Cyclic Graphs
