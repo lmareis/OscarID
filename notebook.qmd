@@ -25,25 +25,25 @@ engine: julia
 
 ## Linear Structural Equation Models
 
-Let $\Lambda \in \mathbb{R}^{d\times d}$ be an upper-diagonal design matrix and let $\varepsilon \sim P_\varepsilon$ be a centered random error vector with covariance matrix $\Omega$. A random variable $X$ is said to follow a linear model if it satisfies the structural equations $$ X = \Lambda^\top X  + \varepsilon. $$ The resulting covariance matrix $\Sigma$ on a dataset $(X^{i})_{i \in [n]}$ defines the following system of equations: $$\Sigma := Cov(X) = (Id - \Lambda)^{-T} \Omega (Id - \Lambda)^{-1} $$ These equations specify algebraic relations via polynomials on the observed covariance matrix. They can be used to verify a proposed model class and to identify model parameters.
+Let $\Lambda \in \mathbb{R}^{d\times d}$ be a strictly upper-triangular design matrix and let $\varepsilon \sim P_\varepsilon$ be a centered random vector with positive definite covariance matrix $\Omega \in \mathbb{R}^{d\times d}$. A random vector $X$ follows a linear structural equation model (SEM) if it satisfies $$ X = \Lambda^\top X  + \varepsilon. $$ The induced covariance matrix on a dataset $(X^{i})_{i \in [n]}$ takes the form $$\Sigma := Cov(X) = (Id - \Lambda)^{-T} \Omega (Id - \Lambda)^{-1}. $$ These equations define polynomial relations among the observed covariance matrix $\Sigma$ and the model parameters $(\Lambda, \Omega)$. They may be used both to assess compatibility of a proposed model class with data and to identify model parameters from second-order moments.
 
-## Acyclic Directed Mixed Graphs (ADMGs)
+## Acyclic Directed Mixed Graphs
 
-Let the four-variate random vector $X$ follow the structural equations $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 \\ \lambda_{12} & \lambda_{13} & 0 & 0 \\ 0 & 0 & \lambda_{34} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \\ \varepsilon_4 \end{pmatrix}, \quad  Cov(\varepsilon) = \begin{pmatrix} \omega_{11} & 0 & 0 & 0 \\ 0 & \omega_{22} &  \omega_{23} & 0 \\ 0 & \omega_{23} & \omega_{33} &\omega_{34} \\ 0 & 0 & \omega_{34} & \omega_{44} \end{pmatrix}.$$ This random vector satisfies Markov properties indicating (conditional) independencies with respect to the following graph:
+Consider the four-variate SEM $$ \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} = \begin{pmatrix} 0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 \\ \lambda_{12} & \lambda_{13} & 0 & 0 \\ 0 & 0 & \lambda_{34} & 0 \end{pmatrix} \begin{pmatrix} X_1 \\ X_2 \\ X_3 \\ X_4 \end{pmatrix} + \begin{pmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \\ \varepsilon_4 \end{pmatrix}, \quad  Cov(\varepsilon) = \begin{pmatrix} \omega_{11} & 0 & 0 & 0 \\ 0 & \omega_{22} &  \omega_{23} & 0 \\ 0 & \omega_{23} & \omega_{33} &\omega_{34} \\ 0 & 0 & \omega_{34} & \omega_{44} \end{pmatrix}.$$ This random vector satisfies Markov properties encoding conditional independencies with respect to the following acyclic directed mixed graph (ADMG) $\mathcal{G}$:
 
 ![](Tikz_Pictures/ADMG.png){fig-align="center" width="200"}
 
-The direct effects $\lambda_{21}$, $\lambda_{31}$ and $\lambda_{43}$ correspond to edges in the graph are parameters of interest. In practice, direct effects can for example model the effectiveness of a medical drug, the effectiveness of an institutional policy or of machine settings on the manufacturing quality. Experts or statistical structure learning can infer a potential graph inducing a structural model in which parameters are to be estimated.
+The direct effects $\lambda_{21}$, $\lambda_{31}$ and $\lambda_{43}$ correspond to edges in $\mathcal{G}$ and constitute the parameters of primary interest. In applications, such direct effects may model, for instance, the efficacy of a medical treatment, the impact of an institutional policy, or the influence of machine settings on manufacturing quality. The graph $\mathcal{G}$ may be specified by domain experts or inferred via statistical structure learning, after which the corresponding model parameters are to be estimated.
 
-There exists mathematical theory in the Half-Trek-Criterion on whether model parameters can be identified. This criterion is however sufficient but not necessary (@Foygel2012). We show how computational algebra programs can be used to check parameter identifiability, closing the theoretical gap. All following symbolic computations are performed in the `OSCAR` Package embedded in `Julia` (@OSCAR).
+Generic identifiability of model parameters may be assessed via the Half-Trek Criterion (@Foygel2012); however. We describe a computational algebraic approach that is both necessary and sufficient, thereby closing this theoretical gap. All symbolic computations are performed in the `OSCAR` Package (@OSCAR) for `Julia`.
 
 ```{julia}
 using Oscar
 ```
 
-### Computing the Model Variety
+### The Model Ideal
 
-The polynomial equations induced by the covariance relations characterize a *variety*, which is an algebraic null-set. This variety consists of all model parameter configurations and covariance matrices that are aligned with the statistical model. An ideal is a space of polynomial equations whose null-set is the variety. Strategically reducing a set of polynomials generating the ideal (generators) and checking whether there exist a linear polynomial $$\lambda_{ij} g_1(\Sigma) - g_2(\Sigma)$$ *generically* identifies the parameter $\lambda_{ij}$ (@sullivant2023algebraic, Proposition 16.1.8). Buchberger's algorithm and variants for computing Groebner Basis eliminate the superflous model parameters from the generators after finite reductions. If the parameter is *generically nonidentifiable*, the finite reductions will return no such suitable generator. The following code chunk computes the ideal for our ADMG example.
+The covariance relation $\Sigma = (Id - \Lambda)^{-T} \Omega (Id - \Lambda)^{-1}$ defines a polynomial map from the parameter space $(\Lambda,\Omega)$ into the space of symmetric matrices. The *model ideal* $\mathcal{I}$ is the ideal in the polynomial ring $\mathbb{Q}[\Lambda,\Omega,\Sigma]$ generated by the relations $$(- (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1})_{ij} -  \Sigma_{ij} = 0 \quad \forall i,j \in [d].$$ Its zero set is the *model variety* $\mathcal{V(I)}$, consisting of all triplets $(\Lambda,\Omega,\Sigma)$ consistent with the postulated statistical model. In the present implementation, the ideal \mathcal{I} is constructed in a joint polynomial ring over the entries of $\Lambda$ (denoted `l[i,j]`),$\Omega$ (denoted `w[i,j]`), and $\Sigma$ (denoted `s[i,j]`). Since the covariance parametrization may involve rational rather than polynomial expressions for cyclic graphs, each generator is cleared of denominators before being added to $\mathcal{I}$.
 
 ```{julia}
 #| output: false
@@ -113,28 +113,27 @@ generators_ideal_admg = identify_parameters(model_admg, false, true)
 display(generators_ideal_admg)
 ```
 
-The function `identify_parameters` creates a joint polynomial ring on the entries of $\Lambda$ (`l[i, j]`), $\Omega$ (`w[i]`) and $\Sigma$ (`s[i, j]`). Note that we call the function `gaussian_graphical_model` although the error might be non-Gaussian. This is fine. It solely provides the necessary covariance relations after calling the method `parametrization` on the returned model. The ideal is constructed from the polynomial relations $$(- (Id - \Lambda^\top)^{-T} \Omega (Id - \Lambda)^{-1})_{ij} -  \Sigma_{ij} = 0 \quad \forall i,j \in [d]$$ on the joint ring. The left-hand-side, as a potential rational function in the parameter ring, is handled though the `numerator` and `denominator` methods. The model ideal generators are the $\Sigma_{ij}$ entries `s[i, j]`.
+In the ADMG example, the generator corresponding to $\sigma_{12}$ encodes that $X_1$ and $X_2$ are uncorrelated, imposing a single visible constraint that a positive definite $4\times 4$ matrix must satisfy to lie in $\mathcal{V(I)}$. By contrast, the generator corresponding to $\sigma_{11}$ immediately yields the identification formula $\omega_{11} = \sigma_{11}$ expressing that the error variance of $X_1$ equals the marginal variance of $X_1$.
 
-In our example, the second generator $(\Omega, \Lambda, \Sigma) \mapsto \sigma_{21}$ encodes that $X_1$ and $X_2$ are uncorrelated. This is the only visible requirement on the space of positive definite $4\times 4$ matrices to be a correlation matrix of the proposed statistical model. In contrast, the first generator $(\Omega, \Lambda, \Sigma) \mapsto -\omega_{11} + \sigma_{11}$ already identify the error variance $Var(\varepsilon_1)$ as $Var(X_1)$. 
+Note that we call the function `gaussian_graphical_model` although the error might be non-Gaussian. This is fine as it solely provides the necessary covariance relations. 
 
-### Computing the Elimination Ideal
+## Elimination and Generic Identifiability
 
-The generator set above does not contain linear polynomials of the form $\lambda g_1(\Sigma) - g_2(\Sigma)$ for $\lambda \in \{\lambda_{13}, \lambda_{23}, \lambda_{34}\}$. It might however be possible to add or substract multiples of the generators to achieve such form. This procedure is implemented in the method `eliminate` by computing a Groebner basis and is carried out below. 
+A parameter $\lambda_{ij}$ is *generically identifiable* if it is uniquely determined as a rational function of $\Sigma$ on a Zariski-dense subset of the model variety. By a standard result in algebraic statistics (@sullivant2023algebraic, Proposition 16.1.8), this holds if and only if the *elimination ideal* $$\mathcal{J}_{\lambda_{ij}} := \mathcal{I} \cap \mathbb{Q}[\lambda_{ij}, \sigma]$$ contains a polynomial of the form $$\lambda_{ij} \cdot g_1(\Sigma) - g_2(\Sigma),$$ for polynomials $g_1, g_2$ in the entries of $\Sigma$ with $g_1$ not vanishing identically on $\mathcal{V}(\mathcal{I})$. The elimination ideal $\mathcal{J}_{\lambda_{ij}}$ is computed by eliminating all parameters other than $\lambda_{ij}$ from $\mathcal{I}$ via a Gröbner basis computation with an appropriate elimination ordering, as implemented in the `eliminate` function of OSCAR. The completeness of the Gröbner basis guarantees that if no such polynomial exists after finite steps in $\mathcal{J}_{\lambda_{ij}}$, then $\lambda_{ij}$ is *generically nonidentifiable*.
 
 ```{julia}
 elimination_admg = identify_parameters(model_admg, true)
 print_dictionary(elimination_admg)
 ```
 
-Inspecting the first generator indicates that there exists with $-\sigma_{13}\sigma_{24} + \sigma_{14}\sigma_{23}$ a second requirement on the space of $4\times 4$ covariance matrices. By the completeness of the Groebner basis on our specified ordering, there can not exist any other requirement. The last two polynomials, 
+In the ADMG example, inspecting the generators of $\mathcal{J}_{\lambda_{34}}$ reveals the additional constraint $-\sigma_{13}\sigma_{24} + \sigma_{14}\sigma_{23} = 0$ on the space of $4 \times 4$ covariance matrices, and yields the identification formulas
 $$ 
 \begin{align}
 &\lambda_{34} \cdot \sigma_{23} - \sigma_{24} \\ 
 &\lambda_{34} \cdot \sigma_{13} - \sigma_{14}
 \end{align}
 $$
-both identify the parameter $\lambda_{34}$. In contrast, the parameter $\lambda_{13}$ is generically nonidentifiable as there exists no suitable polynomial in the elimination variety. Statistically this is due to the overparameterization between $X_2$ and $X_3$ through the directed and bidirected edge.
-The method `contains_linear_poly` below finally filters all generators for the required linear form which would imply generic parameter identifiablility. It returns one one of potentially many identification formulas.
+both of which identify the parameter $\lambda_{34}$ as a rational function of $\Sigma$. For $\lambda_{13}$, no such polynomial exists in the corresponding elimination ideal, confirming generic nonidentifiability. Statistically, this reflects an overparameterization: the directed edge $2\rightarrow 3$ and the bidirected edge $2\leftrightarrow 3$. 
 
 ```{julia}
 #| output: false
@@ -162,14 +161,16 @@ identification_admg = identify_parameters(model_admg)
 print_dictionary(identification_admg)
 ```
 
+The function `contains_linear_poly` filters the generators of each elimination ideal for polynomials of the required linear form in $\lambda_{ij}$, returning one identification formula among potentially many. Applying this procedure to all directed edges of $\mathcal{G}$ yields: $\lambda_{34}$ is generically identifiable, while $\lambda_{13}$ and $\lambda_{23}$ are not.
+
+
 As expected, we find the parameters $\lambda_{34}$ and $\lambda_{12}$ to be identified. The parameter $\lambda_{23}$ is not identifiable from the data.
 
 ## Directed Acyclic Graphs
 
-As a sanity check, we apply the same methodology to graphical modelling with directed acyclic graphs (DAGs). Let the three-variate random vector $X$ be Markov to the following graph:
+As a consistency check, we apply the same methodology to Gaussian graphical models defined by directed acyclic graphs (DAGs), in which $\Omega$ is constrained to be diagonal. Consider the three-variate SEM Markov with respect to the following chain graph:
 
 ![](Tikz_Pictures/DAG.png){fig-align="center" width="200"}
-
 ```{julia}
 G = graph_from_edges(Directed, [[1, 2], [2, 3]])
 M = gaussian_graphical_model(G)
@@ -177,9 +178,9 @@ out = identify_parameters(M)
 print_dictionary(out)
 ```
 
-Both linear parameters $\lambda_{12}$ and $\lambda_{23}$, corresponding to the edges $X_1\rightarrow X_2$ and  $X_2\rightarrow X_3$, are identified through regression on the parents.
+The elimination ideals for both directed edges contain polynomials of the required linear form, yielding the identification formulas $$\lambda_{12} = \frac{\sigma_{12}}{\sigma_{11}}, \quad \lambda_{23} = \frac{\sigma_{23}}{\sigma_{22}},$$ corresponding to regression of each variable on its unique parent. Both parameters $\lambda_{12}$ and $\lambda_{23}$ are thus generically identifiable, in agreement with the classical theory of recursive structural equation models.
 
 
-## Cyclic Graphs
+## Cyclic Models
 
-The handling of cyclic graphs will be enabled in a future version of Oscar. Conceptually, this requires nothing new.
+The algebraic framework described above extends in principle to linear SEMs with cycles, for which $Id - \Lambda$ can no longer be transformed to a strictly lower triangular matrix. The construction of the model ideal and the subsequent Gröbner basis elimination proceed without conceptual modification; the polynomial ring and ideal generators are defined identically. Full implementation support for cyclic graphs is forthcoming in a future release of OSCAR.
